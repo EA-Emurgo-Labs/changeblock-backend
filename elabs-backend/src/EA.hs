@@ -19,6 +19,7 @@ module EA (
   eaGetCollateral',
   eaMarketplaceAtTxOutRef,
   eaMarketplaceInfos,
+  eaOracleAtTxOutRef,
 )
 where
 
@@ -33,6 +34,11 @@ import EA.Script.Marketplace (
   MarketplaceInfo,
   MarketplaceParams,
   marketplaceDatumToInfo,
+ )
+import EA.Script.Oracle (
+  OracleDatum,
+  OracleInfo,
+  oracleDatumToInfo,
  )
 import GeniusYield.TxBuilder (adaOnlyUTxOPure, utxoDatumPure)
 import GeniusYield.Types (
@@ -220,3 +226,15 @@ eaMarketplaceInfos mktPlaceParams = do
         either (Left . show) Right $
           utxoDatumPure @MarketplaceDatum t
       marketplaceDatumToInfo (utxoRef utxo) value addr datum
+
+eaOracleAtTxOutRef :: GYTxOutRef -> EAApp OracleInfo
+eaOracleAtTxOutRef oref = do
+  providers <- asks eaAppEnvGYProviders
+  utxos <- liftIO $ gyQueryUtxosAtTxOutRefsWithDatums providers [oref]
+  utxo <- eaLiftMaybe "No UTXO found" $ listToMaybe utxos
+  (addr, val, datum) <-
+    eaLiftEither (const "Cannot extract data from UTXO") $
+      utxoDatumPure @OracleDatum utxo
+
+  eaLiftEither (const "Cannot create oracle info") $
+    oracleDatumToInfo oref val addr datum

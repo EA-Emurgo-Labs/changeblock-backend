@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module EA.Script.Oracle (OracleDatum (..), OracleScriptParams (..), OracleAction (..), OracleInfo (..)) where
+module EA.Script.Oracle (OracleDatum (..), OracleScriptParams (..), OracleAction (..), OracleInfo (..), oracleDatumToInfo) where
 
 import GeniusYield.Types
 import PlutusLedgerApi.V1.Crypto (PubKeyHash)
@@ -34,3 +34,18 @@ data OracleInfo = OracleInfo
   , orcInfoRate :: Integer
   }
   deriving stock (Show)
+
+oracleDatumToInfo ::
+  GYTxOutRef ->
+  GYValue ->
+  GYAddress ->
+  OracleDatum ->
+  Either String OracleInfo
+oracleDatumToInfo oref val addr datum = do
+  return
+    OracleInfo
+      { orcInfoUtxoRef = oref
+      , orcInfoAddress = addr
+      , orcInfoValue = val
+      , orcInfoRate = orcDtmRate datum
+      }

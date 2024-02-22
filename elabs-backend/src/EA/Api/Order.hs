@@ -5,8 +5,9 @@ module EA.Api.Order (
 
 import Data.Aeson qualified as Aeson
 import Data.Swagger qualified as Swagger
-import EA (EAApp)
+import EA (EAApp, eaAppEnvGYNetworkId, eaMarketplaceAtTxOutRef)
 import EA.Api.Types (SubmitTxResponse, UserId)
+import GeniusYield.Types (GYTxOutRef)
 import Servant (
   Capture,
   GenericMode ((:-)),
@@ -51,7 +52,6 @@ type OrderCreate =
 type OrderBuy =
   "orders"
     :> ReqBody '[JSON] OrderBuyRequest
-    :> Capture "id" Int
     :> "buy"
     :> Post '[JSON] SubmitTxResponse
 
@@ -86,6 +86,8 @@ data OrderBuyRequest = OrderBuyRequest
   -- ^ The user ID.
   , amount :: !Int
   -- ^ The amount of carbon to buy.
+  , orderId :: !GYTxOutRef
+  -- ^ The out ref of order
   }
   deriving stock (Show, Generic)
   deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
@@ -97,8 +99,14 @@ data OrderBuyRequest = OrderBuyRequest
 handleOrderCreate :: OrderRequest -> EAApp SubmitTxResponse
 handleOrderCreate = error "TODO"
 
-handleOrderBuy :: OrderBuyRequest -> Int -> EAApp SubmitTxResponse
-handleOrderBuy = error "TODO"
+handleOrderBuy :: OrderBuyRequest -> EAApp SubmitTxResponse
+handleOrderBuy orderRequest = do
+  _nid <- asks eaAppEnvGYNetworkId
+  _marketplaceInfo <- eaMarketplaceAtTxOutRef $ orderId orderRequest
+  -- let tx = buy
+  --           nid
+  --           marketplaceInfo
+  error "TODO"
 
 handleOrderCancel :: Int -> EAApp SubmitTxResponse
 handleOrderCancel = error "TODO"
