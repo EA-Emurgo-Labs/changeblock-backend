@@ -92,6 +92,7 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvRootKey :: !RootKey
   , eaAppEnvBlockfrostIpfsProjectId :: !String
   , eaAppEnvAuthTokens :: ![Text]
+  , eaAppEnvOracleOutRef :: !GYTxOutRef
   }
 
 runEAApp :: EAAppEnv -> EAApp a -> IO a

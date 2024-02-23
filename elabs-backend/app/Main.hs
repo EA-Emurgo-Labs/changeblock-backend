@@ -307,6 +307,8 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
 
   bfIpfsToken <- getEnv "BLOCKFROST_IPFS"
 
+  oracleOutRef <- getEnv "ORACLE_OUTREF"
+
   return $
     EAAppEnv
       { eaAppEnvGYProviders = providers
@@ -317,6 +319,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvRootKey = rootKey
       , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
       , eaAppEnvAuthTokens = tokens
+      , eaAppEnvOracleOutRef = fromString oracleOutRef 
       }
 
 server :: EAAppEnv -> Application

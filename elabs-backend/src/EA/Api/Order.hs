@@ -20,7 +20,7 @@ import Servant.Swagger (HasSwagger (toSwagger))
 import EA.Script.Marketplace(MarketplaceParams(..), MarketplaceInfo(..))
 import EA (
   EAApp,
-  EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvScripts, eaAppEnvGYProviders),
+  EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvScripts, eaAppEnvGYProviders, eaAppEnvOracleOutRef),
   eaLiftMaybe,
   eaSubmitTx,
   eaMarketplaceAtTxOutRef, 
@@ -136,8 +136,10 @@ handleOrderBuy orderRequest = do
   providers <- asks eaAppEnvGYProviders
   marketplaceInfo <- eaMarketplaceAtTxOutRef $ orderId orderRequest
   scripts <- asks eaAppEnvScripts
-  -- TODO:
-  oracleInfo <- eaOracleAtTxOutRef $ orderId orderRequest
+
+  -- Get oracle info
+  oracleOutRef <- asks eaAppEnvOracleOutRef
+  oracleInfo <- eaOracleAtTxOutRef oracleOutRef
 
   -- Get the internal address pairs.
   internalAddrPairs <- eaGetInternalAddresses False
@@ -203,8 +205,10 @@ handleOrderCancel orderRequest = do
   providers <- asks eaAppEnvGYProviders
   marketplaceInfo <- eaMarketplaceAtTxOutRef $ cancelOrderId orderRequest
   scripts <- asks eaAppEnvScripts
-  -- TODO:
-  oracleInfo <- eaOracleAtTxOutRef $ cancelOrderId orderRequest
+
+  -- Get oracle info
+  oracleOutRef <- asks eaAppEnvOracleOutRef
+  oracleInfo <- eaOracleAtTxOutRef oracleOutRef
 
   -- Get the internal address pairs.
   internalAddrPairs <- eaGetInternalAddresses False
