@@ -26,7 +26,7 @@ import EA (
   eaMarketplaceAtTxOutRef, 
   eaOracleAtTxOutRef,
  )
-import EA.Api.Types (SubmitTxResponse, UserId)
+import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
 import EA.Script (nftMintingPolicy, oracleValidator)
 import EA.Wallet (
   eaGetAddresses,
@@ -197,7 +197,8 @@ handleOrderBuy orderRequest = do
       runGYTxMonadNode nid providers [addr] addr collateral (return tx)
 
   void $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
-  error "TODO"
+
+  return $ txBodySubmitTxResponse txBody
 
 handleOrderCancel :: OrderCancelRequest -> EAApp SubmitTxResponse
 handleOrderCancel orderRequest = do
@@ -257,7 +258,7 @@ handleOrderCancel orderRequest = do
       runGYTxMonadNode nid providers [addr] addr collateral (return tx)
 
   void $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
-  error "TODO"
+  return $ txBodySubmitTxResponse txBody
 
 handleOrderUpdate :: OrderRequest -> Int -> EAApp SubmitTxResponse
 handleOrderUpdate = error "TODO"
