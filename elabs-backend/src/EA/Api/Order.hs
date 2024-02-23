@@ -7,24 +7,14 @@ import Data.Aeson qualified as Aeson
 import Data.Swagger qualified as Swagger
 import EA (
   EAApp,
-  EAAppEnv (
-    eaAppEnvEscrowPubkeyHash,
-    eaAppEnvGYNetworkId,
-    eaAppEnvGYProviders,
-    eaAppEnvOracleNFTPolicyId,
-    eaAppEnvOracleNFTTokenName,
-    eaAppEnvOracleOutRef,
-    eaAppEnvOracleScriptHash,
-    eaAppEnvScripts
-  ),
+  EAAppEnv (..),
   eaLiftMaybe,
   eaMarketplaceAtTxOutRef,
   eaOracleAtTxOutRef,
   eaSubmitTx,
  )
 import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
-import EA.Script (nftMintingPolicy, oracleValidator)
-import EA.Script.Marketplace (MarketplaceInfo (..), MarketplaceParams (..))
+import EA.Script.Marketplace (MarketplaceParams (..))
 import EA.Tx.Changeblock.Marketplace (buy, cancel)
 import EA.Wallet (
   eaGetCollateralFromInternalWallet,
@@ -33,12 +23,9 @@ import EA.Wallet (
  )
 import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types (
-  GYAssetClass (GYToken),
   GYTxOutRef,
   addressToPubKeyHash,
-  mintingPolicyId,
   unsafeTokenNameFromHex,
-  validatorHash,
  )
 import Internal.Wallet qualified as Wallet
 import Servant (
@@ -173,6 +160,9 @@ handleOrderBuy orderRequest = do
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
   escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
 
+  -- Get marketplace script ref
+  marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
+
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = oracleScriptHash
@@ -184,7 +174,7 @@ handleOrderBuy orderRequest = do
           , mktPrmOracleTokenName = oracleNftTokenName
           }
 
-  let mMarketplaceRefScript = Just (orderId orderRequest)
+  let mMarketplaceRefScript = Just marketplaceScriptOutRef
   let tx =
         buy
           nid
@@ -217,37 +207,39 @@ handleOrderCancel orderRequest = do
   -- Get the internal address pairs.
   internalAddrPairs <- eaGetInternalAddresses False
 
+  -- Get oracle validator hash
+  oracleScriptHash <- asks eaAppEnvOracleScriptHash
+
   -- Get the collateral address and its signing key.
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
 
-  (addr, key, oref) <-
+  (addr, key, _) <-
     eaSelectOref
       internalAddrPairs
       (\r -> collateral /= Just (r, True))
       >>= eaLiftMaybe "No UTxO found"
 
-  -- TODO: User proper policyId for Oracle NFT
-  let oracleNftAsset = mintingPolicyId $ nftMintingPolicy oref scripts
-      oracleNftAssetName = unsafeTokenNameFromHex "43424c"
-      orcAssetClass = GYToken oracleNftAsset oracleNftAssetName
+  -- Get oracle NFT
+  oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
+  oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
 
-      -- TODO: user proper operaor pubkey hash for oracle validator
-      orcValidatorHash =
-        validatorHash $ oracleValidator orcAssetClass (mktInfoIssuer marketplaceInfo) scripts
+  -- Get marketplace script ref
+  marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
 
-      marketParams =
+  let marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = mktInfoIssuer marketplaceInfo
+          { mktPrmOracleValidator = oracleScriptHash
+          , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
           , -- \^ It can be any string for now using v1.0.0
-            mktPrmOracleSymbol = oracleNftAsset
-          , mktPrmOracleTokenName = oracleNftAssetName
+            mktPrmOracleSymbol = oracleNftPolicy
+          , mktPrmOracleTokenName = oracleNftTokenName
           }
-  -- TODO:
-  let mMarketplaceRefScript = Just (cancelOrderId orderRequest)
+
+  let mMarketplaceRefScript = Just marketplaceScriptOutRef
   let tx =
         cancel
           nid

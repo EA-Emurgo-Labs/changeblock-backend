@@ -101,6 +101,7 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvOracleNFTPolicyId :: !GYMintingPolicyId
   , eaAppEnvOracleNFTTokenName :: !GYTokenName
   , eaAppEnvEscrowPubkeyHash :: !GYPubKeyHash
+  , eaAppEnvMarketplaceScriptOutRef :: !GYTxOutRef
   }
 
 runEAApp :: EAAppEnv -> EAApp a -> IO a

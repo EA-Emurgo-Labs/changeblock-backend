@@ -314,6 +314,8 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
 
   escrowPubkeyHash <- getEnv "ESCROW_PUBKEY_HASH"
 
+  marketplaceScriptOutRef <- getEnv "MARKETPLACE_SCRIPT_OUTREF"
+
   return $
     EAAppEnv
       { eaAppEnvGYProviders = providers
@@ -329,6 +331,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvOracleNFTPolicyId = fromString oracleNFTPolicyId
       , eaAppEnvOracleNFTTokenName = fromString oracleNFTTokenName
       , eaAppEnvEscrowPubkeyHash = fromString escrowPubkeyHash
+      , eaAppEnvMarketplaceScriptOutRef = fromString marketplaceScriptOutRef
       }
 
 server :: EAAppEnv -> Application
