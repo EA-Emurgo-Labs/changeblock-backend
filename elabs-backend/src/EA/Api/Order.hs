@@ -44,7 +44,7 @@ import GeniusYield.Types (
   mintingPolicyId
  )
 import Internal.Wallet qualified as Wallet
-import EA.Tx.Changeblock.Marketplace(buy)
+import EA.Tx.Changeblock.Marketplace(buy, cancel)
 --------------------------------------------------------------------------------
 
 data OrderApi mode = OrderApi
@@ -81,7 +81,7 @@ type OrderBuy =
 
 type OrderCancel =
   "orders"
-    :> Capture "id" Int
+    :> ReqBody '[JSON] OrderCancelRequest
     :> "cancel"
     :> Post '[JSON] SubmitTxResponse
 
@@ -116,6 +116,13 @@ data OrderBuyRequest = OrderBuyRequest
   deriving stock (Show, Generic)
   deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
 
+data OrderCancelRequest = OrderCancelRequest
+  { cancelOrderId :: !GYTxOutRef
+  -- ^ The out ref of order
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
+
 --------------------------------------------------------------------------------
 
 -- TODO:
@@ -127,10 +134,10 @@ handleOrderBuy :: OrderBuyRequest -> EAApp SubmitTxResponse
 handleOrderBuy orderRequest = do
   nid <- asks eaAppEnvGYNetworkId
   providers <- asks eaAppEnvGYProviders
-  _marketplaceInfo <- eaMarketplaceAtTxOutRef $ orderId orderRequest
-  _scripts <- asks eaAppEnvScripts
+  marketplaceInfo <- eaMarketplaceAtTxOutRef $ orderId orderRequest
+  scripts <- asks eaAppEnvScripts
   -- TODO:
-  _oracleInfo <- eaOracleAtTxOutRef $ orderId orderRequest
+  oracleInfo <- eaOracleAtTxOutRef $ orderId orderRequest
 
   -- Get the internal address pairs.
   internalAddrPairs <- eaGetInternalAddresses False
@@ -151,21 +158,21 @@ handleOrderBuy orderRequest = do
       (\r -> collateral /= Just (r, True))
       >>= eaLiftMaybe "No UTxO found"
 
-  _buyer <- eaLiftMaybe "Cannot decode address" (addressToPubKeyHash addr)
+  buyer <- eaLiftMaybe "Cannot decode address" (addressToPubKeyHash addr)
 
   -- TODO: User proper policyId for Oracle NFT
-  let oracleNftAsset = mintingPolicyId $ nftMintingPolicy oref _scripts
+  let oracleNftAsset = mintingPolicyId $ nftMintingPolicy oref scripts
       oracleNftAssetName = unsafeTokenNameFromHex "43424c"
       orcAssetClass = GYToken oracleNftAsset oracleNftAssetName
 
       -- TODO: user proper operaor pubkey hash for oracle validator
       orcValidatorHash =
-        validatorHash $ oracleValidator orcAssetClass (mktInfoIssuer _marketplaceInfo) _scripts
+        validatorHash $ oracleValidator orcAssetClass (mktInfoIssuer marketplaceInfo) scripts
 
-      _marketParams =
+      marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = mktInfoIssuer _marketplaceInfo
+          , mktPrmEscrowValidator = mktInfoIssuer marketplaceInfo
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
           , -- \^ It can be any string for now using v1.0.0
@@ -173,15 +180,15 @@ handleOrderBuy orderRequest = do
           , mktPrmOracleTokenName = oracleNftAssetName
           }
   -- TODO:
-  let _mMarketplaceRefScript = Just (orderId orderRequest)
+  let mMarketplaceRefScript = Just (orderId orderRequest)
   let tx = buy
             nid
-            _marketplaceInfo
-            _oracleInfo
-            _buyer
-            _mMarketplaceRefScript
-            _marketParams
-            _scripts
+            marketplaceInfo
+            oracleInfo
+            buyer
+            mMarketplaceRefScript
+            marketParams
+            scripts
 
   txBody <-
     liftIO $
@@ -190,8 +197,63 @@ handleOrderBuy orderRequest = do
   void $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
   error "TODO"
 
-handleOrderCancel :: Int -> EAApp SubmitTxResponse
-handleOrderCancel = error "TODO"
+handleOrderCancel :: OrderCancelRequest -> EAApp SubmitTxResponse
+handleOrderCancel orderRequest = do
+  nid <- asks eaAppEnvGYNetworkId
+  providers <- asks eaAppEnvGYProviders
+  marketplaceInfo <- eaMarketplaceAtTxOutRef $ cancelOrderId orderRequest
+  scripts <- asks eaAppEnvScripts
+  -- TODO:
+  oracleInfo <- eaOracleAtTxOutRef $ cancelOrderId orderRequest
+
+  -- Get the internal address pairs.
+  internalAddrPairs <- eaGetInternalAddresses False
+
+  -- Get the collateral address and its signing key.
+  (collateral, colKey) <-
+    eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
+
+  (addr, key, oref) <-
+    eaSelectOref
+      internalAddrPairs
+      (\r -> collateral /= Just (r, True))
+      >>= eaLiftMaybe "No UTxO found"
+
+  -- TODO: User proper policyId for Oracle NFT
+  let oracleNftAsset = mintingPolicyId $ nftMintingPolicy oref scripts
+      oracleNftAssetName = unsafeTokenNameFromHex "43424c"
+      orcAssetClass = GYToken oracleNftAsset oracleNftAssetName
+
+      -- TODO: user proper operaor pubkey hash for oracle validator
+      orcValidatorHash =
+        validatorHash $ oracleValidator orcAssetClass (mktInfoIssuer marketplaceInfo) scripts
+
+      marketParams =
+        MarketplaceParams
+          { mktPrmOracleValidator = orcValidatorHash
+          , mktPrmEscrowValidator = mktInfoIssuer marketplaceInfo
+          , -- \^ TODO: User proper pubkeyhash of escrow
+            mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
+          , -- \^ It can be any string for now using v1.0.0
+            mktPrmOracleSymbol = oracleNftAsset
+          , mktPrmOracleTokenName = oracleNftAssetName
+          }
+  -- TODO:
+  let mMarketplaceRefScript = Just (cancelOrderId orderRequest)
+  let tx = cancel
+            nid
+            marketplaceInfo
+            oracleInfo
+            mMarketplaceRefScript
+            marketParams
+            scripts
+
+  txBody <-
+    liftIO $
+      runGYTxMonadNode nid providers [addr] addr collateral (return tx)
+
+  void $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
+  error "TODO"
 
 handleOrderUpdate :: OrderRequest -> Int -> EAApp SubmitTxResponse
 handleOrderUpdate = error "TODO"
