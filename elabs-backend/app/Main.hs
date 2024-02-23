@@ -324,11 +324,11 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvRootKey = rootKey
       , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
       , eaAppEnvAuthTokens = tokens
-      , eaAppEnvOracleOutRef = fromString oracleOutRef 
-      , eaAppEnvOracleScriptHash = fromString oracleScriptHash 
-      , eaAppEnvOracleNFTPolicyId = fromString oracleNFTPolicyId 
-      , eaAppEnvOracleNFTTokenName= fromString oracleNFTTokenName 
-      , eaAppEnvEscrowPubkeyHash= fromString escrowPubkeyHash 
+      , eaAppEnvOracleOutRef = fromString oracleOutRef
+      , eaAppEnvOracleScriptHash = fromString oracleScriptHash
+      , eaAppEnvOracleNFTPolicyId = fromString oracleNFTPolicyId
+      , eaAppEnvOracleNFTTokenName = fromString oracleNFTTokenName
+      , eaAppEnvEscrowPubkeyHash = fromString escrowPubkeyHash
       }
 
 server :: EAAppEnv -> Application

@@ -5,6 +5,33 @@ module EA.Api.Order (
 
 import Data.Aeson qualified as Aeson
 import Data.Swagger qualified as Swagger
+import EA (
+  EAApp,
+  EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvGYProviders, eaAppEnvOracleNFTPolicyId, eaAppEnvOracleNFTTokenName, eaAppEnvOracleOutRef, eaAppEnvOracleScriptHash, eaAppEnvScripts),
+  eaLiftMaybe,
+  eaMarketplaceAtTxOutRef,
+  eaOracleAtTxOutRef,
+  eaSubmitTx,
+ )
+import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
+import EA.Script (nftMintingPolicy, oracleValidator)
+import EA.Script.Marketplace (MarketplaceInfo (..), MarketplaceParams (..))
+import EA.Tx.Changeblock.Marketplace (buy, cancel)
+import EA.Wallet (
+  eaGetCollateralFromInternalWallet,
+  eaGetInternalAddresses,
+  eaSelectOref,
+ )
+import GeniusYield.TxBuilder (runGYTxMonadNode)
+import GeniusYield.Types (
+  GYAssetClass (GYToken),
+  GYTxOutRef,
+  addressToPubKeyHash,
+  mintingPolicyId,
+  unsafeTokenNameFromHex,
+  validatorHash,
+ )
+import Internal.Wallet qualified as Wallet
 import Servant (
   Capture,
   GenericMode ((:-)),
@@ -17,33 +44,7 @@ import Servant (
   type (:>),
  )
 import Servant.Swagger (HasSwagger (toSwagger))
-import EA.Script.Marketplace(MarketplaceParams(..), MarketplaceInfo(..))
-import EA (
-  EAApp,
-  EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvScripts, eaAppEnvGYProviders, eaAppEnvOracleOutRef, eaAppEnvOracleScriptHash),
-  eaLiftMaybe,
-  eaSubmitTx,
-  eaMarketplaceAtTxOutRef, 
-  eaOracleAtTxOutRef,
- )
-import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
-import EA.Script (nftMintingPolicy, oracleValidator)
-import EA.Wallet (
-  eaGetCollateralFromInternalWallet,
-  eaGetInternalAddresses,
-  eaSelectOref,
- )
-import GeniusYield.TxBuilder (runGYTxMonadNode)
-import GeniusYield.Types (
-  GYAssetClass (GYToken),
-  unsafeTokenNameFromHex,
-  validatorHash,
-  GYTxOutRef, 
-  addressToPubKeyHash, 
-  mintingPolicyId
- )
-import Internal.Wallet qualified as Wallet
-import EA.Tx.Changeblock.Marketplace(buy, cancel)
+
 --------------------------------------------------------------------------------
 
 data OrderApi mode = OrderApi
@@ -150,7 +151,7 @@ handleOrderBuy orderRequest = do
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
 
-  (addr, key, oref) <-
+  (addr, key, _) <-
     eaSelectOref
       internalAddrPairs
       (\r -> collateral /= Just (r, True))
@@ -158,30 +159,31 @@ handleOrderBuy orderRequest = do
 
   buyer <- eaLiftMaybe "Cannot decode address" (addressToPubKeyHash addr)
 
-  -- TODO: User proper policyId for Oracle NFT
-  let oracleNftAsset = mintingPolicyId $ nftMintingPolicy oref scripts
-      oracleNftAssetName = unsafeTokenNameFromHex "43424c"
+  -- Get oracle NFT
+  oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
+  oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
 
-      marketParams =
+  let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = oracleScriptHash
           , mktPrmEscrowValidator = mktInfoIssuer marketplaceInfo
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
           , -- \^ It can be any string for now using v1.0.0
-            mktPrmOracleSymbol = oracleNftAsset
-          , mktPrmOracleTokenName = oracleNftAssetName
+            mktPrmOracleSymbol = oracleNftPolicy
+          , mktPrmOracleTokenName = oracleNftTokenName
           }
   -- TODO:
   let mMarketplaceRefScript = Just (orderId orderRequest)
-  let tx = buy
-            nid
-            marketplaceInfo
-            oracleInfo
-            buyer
-            mMarketplaceRefScript
-            marketParams
-            scripts
+  let tx =
+        buy
+          nid
+          marketplaceInfo
+          oracleInfo
+          buyer
+          mMarketplaceRefScript
+          marketParams
+          scripts
 
   txBody <-
     liftIO $
@@ -236,13 +238,14 @@ handleOrderCancel orderRequest = do
           }
   -- TODO:
   let mMarketplaceRefScript = Just (cancelOrderId orderRequest)
-  let tx = cancel
-            nid
-            marketplaceInfo
-            oracleInfo
-            mMarketplaceRefScript
-            marketParams
-            scripts
+  let tx =
+        cancel
+          nid
+          marketplaceInfo
+          oracleInfo
+          mMarketplaceRefScript
+          marketParams
+          scripts
 
   txBody <-
     liftIO $
