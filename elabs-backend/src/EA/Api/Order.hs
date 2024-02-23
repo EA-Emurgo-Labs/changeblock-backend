@@ -7,7 +7,16 @@ import Data.Aeson qualified as Aeson
 import Data.Swagger qualified as Swagger
 import EA (
   EAApp,
-  EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvGYProviders, eaAppEnvOracleNFTPolicyId, eaAppEnvOracleNFTTokenName, eaAppEnvOracleOutRef, eaAppEnvOracleScriptHash, eaAppEnvScripts),
+  EAAppEnv (
+    eaAppEnvEscrowPubkeyHash,
+    eaAppEnvGYNetworkId,
+    eaAppEnvGYProviders,
+    eaAppEnvOracleNFTPolicyId,
+    eaAppEnvOracleNFTTokenName,
+    eaAppEnvOracleOutRef,
+    eaAppEnvOracleScriptHash,
+    eaAppEnvScripts
+  ),
   eaLiftMaybe,
   eaMarketplaceAtTxOutRef,
   eaOracleAtTxOutRef,
@@ -162,18 +171,19 @@ handleOrderBuy orderRequest = do
   -- Get oracle NFT
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
 
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = oracleScriptHash
-          , mktPrmEscrowValidator = mktInfoIssuer marketplaceInfo
+          , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
           , -- \^ It can be any string for now using v1.0.0
             mktPrmOracleSymbol = oracleNftPolicy
           , mktPrmOracleTokenName = oracleNftTokenName
           }
-  -- TODO:
+
   let mMarketplaceRefScript = Just (orderId orderRequest)
   let tx =
         buy
