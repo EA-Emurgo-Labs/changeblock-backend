@@ -64,7 +64,7 @@ import GeniusYield.Types (
   GYValidatorHash,
   GYMintingPolicyId,
   GYTokenName,
-  
+  GYPubKeyHash,
  )
 import Internal.Wallet (RootKey)
 import UnliftIO (MonadUnliftIO (withRunInIO))
@@ -100,6 +100,7 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvOracleScriptHash :: !GYValidatorHash
   , eaAppEnvOracleNFTPolicyId :: !GYMintingPolicyId
   , eaAppEnvOracleNFTTokenName :: !GYTokenName
+  , eaAppEnvEscrowPubkeyHash :: !GYPubKeyHash
   }
 
 runEAApp :: EAAppEnv -> EAApp a -> IO a

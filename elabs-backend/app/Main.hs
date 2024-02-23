@@ -312,6 +312,8 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
   oracleNFTPolicyId <- getEnv "ORACLE_NFT_POLICY_ID"
   oracleNFTTokenName <- getEnv "ORACLE_NFT_TOKENNAME"
 
+  escrowPubkeyHash <- getEnv "ESCROW_PUBKEY_HASH"
+
   return $
     EAAppEnv
       { eaAppEnvGYProviders = providers
@@ -326,6 +328,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvOracleScriptHash = fromString oracleScriptHash 
       , eaAppEnvOracleNFTPolicyId = fromString oracleNFTPolicyId 
       , eaAppEnvOracleNFTTokenName= fromString oracleNFTTokenName 
+      , eaAppEnvEscrowPubkeyHash= fromString escrowPubkeyHash 
       }
 
 server :: EAAppEnv -> Application
