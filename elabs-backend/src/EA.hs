@@ -61,7 +61,10 @@ import GeniusYield.Types (
   gyLogWarning,
   gyQueryUtxosAtAddressesWithDatums,
   gyQueryUtxosAtTxOutRefsWithDatums,
-  GYValidatorHash
+  GYValidatorHash,
+  GYMintingPolicyId,
+  GYTokenName,
+  
  )
 import Internal.Wallet (RootKey)
 import UnliftIO (MonadUnliftIO (withRunInIO))
@@ -95,6 +98,8 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvAuthTokens :: ![Text]
   , eaAppEnvOracleOutRef :: !GYTxOutRef
   , eaAppEnvOracleScriptHash :: !GYValidatorHash
+  , eaAppEnvOracleNFTPolicyId :: !GYMintingPolicyId
+  , eaAppEnvOracleNFTTokenName :: !GYTokenName
   }
 
 runEAApp :: EAAppEnv -> EAApp a -> IO a

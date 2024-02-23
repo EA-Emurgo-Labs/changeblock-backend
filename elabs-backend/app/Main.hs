@@ -309,6 +309,8 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
 
   oracleOutRef <- getEnv "ORACLE_OUTREF"
   oracleScriptHash <- getEnv "ORACLE_SCRIPT_HASH"
+  oracleNFTPolicyId <- getEnv "ORACLE_NFT_POLICY_ID"
+  oracleNFTTokenName <- getEnv "ORACLE_NFT_TOKENNAME"
 
   return $
     EAAppEnv
@@ -322,6 +324,8 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvAuthTokens = tokens
       , eaAppEnvOracleOutRef = fromString oracleOutRef 
       , eaAppEnvOracleScriptHash = fromString oracleScriptHash 
+      , eaAppEnvOracleNFTPolicyId = fromString oracleNFTPolicyId 
+      , eaAppEnvOracleNFTTokenName= fromString oracleNFTTokenName 
       }
 
 server :: EAAppEnv -> Application
