@@ -61,6 +61,7 @@ import GeniusYield.Types (
   gyLogWarning,
   gyQueryUtxosAtAddressesWithDatums,
   gyQueryUtxosAtTxOutRefsWithDatums,
+  GYValidatorHash
  )
 import Internal.Wallet (RootKey)
 import UnliftIO (MonadUnliftIO (withRunInIO))
@@ -93,6 +94,7 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvBlockfrostIpfsProjectId :: !String
   , eaAppEnvAuthTokens :: ![Text]
   , eaAppEnvOracleOutRef :: !GYTxOutRef
+  , eaAppEnvOracleScriptHash :: !GYValidatorHash
   }
 
 runEAApp :: EAAppEnv -> EAApp a -> IO a

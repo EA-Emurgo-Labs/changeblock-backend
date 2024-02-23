@@ -20,7 +20,7 @@ import Servant.Swagger (HasSwagger (toSwagger))
 import EA.Script.Marketplace(MarketplaceParams(..), MarketplaceInfo(..))
 import EA (
   EAApp,
-  EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvScripts, eaAppEnvGYProviders, eaAppEnvOracleOutRef),
+  EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvScripts, eaAppEnvGYProviders, eaAppEnvOracleOutRef, eaAppEnvOracleScriptHash),
   eaLiftMaybe,
   eaSubmitTx,
   eaMarketplaceAtTxOutRef, 
@@ -29,7 +29,6 @@ import EA (
 import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
 import EA.Script (nftMintingPolicy, oracleValidator)
 import EA.Wallet (
-  eaGetAddresses,
   eaGetCollateralFromInternalWallet,
   eaGetInternalAddresses,
   eaSelectOref,
@@ -144,11 +143,8 @@ handleOrderBuy orderRequest = do
   -- Get the internal address pairs.
   internalAddrPairs <- eaGetInternalAddresses False
 
-  -- Get the user address. We don't need the signing key here.
-  (_userAddr, _) <-
-    eaLiftMaybe "No addresses found"
-      . listToMaybe
-      =<< eaGetAddresses (buyerId orderRequest)
+  -- Get oracle validator hash
+  oracleScriptHash <- asks eaAppEnvOracleScriptHash
 
   -- Get the collateral address and its signing key.
   (collateral, colKey) <-
@@ -165,15 +161,10 @@ handleOrderBuy orderRequest = do
   -- TODO: User proper policyId for Oracle NFT
   let oracleNftAsset = mintingPolicyId $ nftMintingPolicy oref scripts
       oracleNftAssetName = unsafeTokenNameFromHex "43424c"
-      orcAssetClass = GYToken oracleNftAsset oracleNftAssetName
-
-      -- TODO: user proper operaor pubkey hash for oracle validator
-      orcValidatorHash =
-        validatorHash $ oracleValidator orcAssetClass (mktInfoIssuer marketplaceInfo) scripts
 
       marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = orcValidatorHash
+          { mktPrmOracleValidator = oracleScriptHash
           , mktPrmEscrowValidator = mktInfoIssuer marketplaceInfo
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
