@@ -20,6 +20,7 @@ import EA.Wallet (
   eaGetCollateralFromInternalWallet,
   eaGetInternalAddresses,
   eaSelectOref,
+  eaGetAddresses,
  )
 import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types (
@@ -137,8 +138,17 @@ handleOrderBuy orderRequest = do
   oracleOutRef <- asks eaAppEnvOracleOutRef
   oracleInfo <- eaOracleAtTxOutRef oracleOutRef
 
+  -- Get the user address from user ID. We don't need the signing key here.
+  (buyerAddr, buyerKey) <-
+    eaLiftMaybe "No addresses found"
+      . listToMaybe
+      =<< eaGetAddresses (buyerId orderRequest)
+
   -- Get the internal address pairs.
-  internalAddrPairs <- eaGetInternalAddresses False
+  (internalAddr, internalKey) <-
+    eaLiftMaybe "No addresses found"
+      . listToMaybe
+      =<< eaGetInternalAddresses False
 
   -- Get oracle validator hash
   oracleScriptHash <- asks eaAppEnvOracleScriptHash
@@ -147,13 +157,7 @@ handleOrderBuy orderRequest = do
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
 
-  (addr, key, _) <-
-    eaSelectOref
-      internalAddrPairs
-      (\r -> collateral /= Just (r, True))
-      >>= eaLiftMaybe "No UTxO found"
-
-  buyer <- eaLiftMaybe "Cannot decode address" (addressToPubKeyHash addr)
+  buyer <- eaLiftMaybe "Cannot decode address" (addressToPubKeyHash buyerAddr)
 
   -- Get oracle NFT
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
@@ -187,9 +191,9 @@ handleOrderBuy orderRequest = do
 
   txBody <-
     liftIO $
-      runGYTxMonadNode nid providers [addr] addr collateral (return tx)
+      runGYTxMonadNode nid providers [internalAddr] internalAddr collateral (return tx)
 
-  void $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
+  void $ eaSubmitTx $ Wallet.signTx txBody [internalKey, colKey, buyerKey]
 
   return $ txBodySubmitTxResponse txBody
 
