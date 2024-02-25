@@ -17,10 +17,9 @@ import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
 import EA.Script.Marketplace (MarketplaceParams (..))
 import EA.Tx.Changeblock.Marketplace (buy, cancel)
 import EA.Wallet (
+  eaGetAddresses,
   eaGetCollateralFromInternalWallet,
   eaGetInternalAddresses,
-  eaSelectOref,
-  eaGetAddresses,
  )
 import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types (
@@ -114,7 +113,9 @@ data OrderBuyRequest = OrderBuyRequest
   deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
 
 data OrderCancelRequest = OrderCancelRequest
-  { cancelOrderId :: !GYTxOutRef
+  { ownerId :: !UserId
+  -- ^ The user ID.
+  , cancelOrderId :: !GYTxOutRef
   -- ^ The out ref of order
   }
   deriving stock (Show, Generic)
@@ -208,8 +209,17 @@ handleOrderCancel orderRequest = do
   oracleOutRef <- asks eaAppEnvOracleOutRef
   oracleInfo <- eaOracleAtTxOutRef oracleOutRef
 
+  -- Get the user address from user ID. We don't need the signing key here.
+  (_, ownerKey) <-
+    eaLiftMaybe "No addresses found"
+      . listToMaybe
+      =<< eaGetAddresses (ownerId orderRequest)
+
   -- Get the internal address pairs.
-  internalAddrPairs <- eaGetInternalAddresses False
+  (internalAddr, internalKey) <-
+    eaLiftMaybe "No addresses found"
+      . listToMaybe
+      =<< eaGetInternalAddresses False
 
   -- Get oracle validator hash
   oracleScriptHash <- asks eaAppEnvOracleScriptHash
@@ -217,12 +227,6 @@ handleOrderCancel orderRequest = do
   -- Get the collateral address and its signing key.
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
-
-  (addr, key, _) <-
-    eaSelectOref
-      internalAddrPairs
-      (\r -> collateral /= Just (r, True))
-      >>= eaLiftMaybe "No UTxO found"
 
   -- Get oracle NFT
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
@@ -255,9 +259,9 @@ handleOrderCancel orderRequest = do
 
   txBody <-
     liftIO $
-      runGYTxMonadNode nid providers [addr] addr collateral (return tx)
+      runGYTxMonadNode nid providers [internalAddr] internalAddr collateral (return tx)
 
-  void $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
+  void $ eaSubmitTx $ Wallet.signTx txBody [internalKey, colKey, ownerKey]
   return $ txBodySubmitTxResponse txBody
 
 handleOrderUpdate :: OrderRequest -> Int -> EAApp SubmitTxResponse
