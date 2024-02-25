@@ -218,16 +218,16 @@ merge ::
   OracleInfo ->
   -- | Optional marketplace reference script UtxoRef
   Maybe GYTxOutRef ->
-  -- | The Marketplace Parameters
-  MarketplaceParams ->
-  -- | The Scripts
-  Scripts ->
+  -- | The Escrow PubkeyHash
+  GYPubKeyHash ->
+  -- | The Marketplace Validator
+  GYValidator 'PlutusV2 ->
   GYTxSkeleton 'PlutusV2
-merge nid infos OracleInfo {..} mMarketplaceRefScript mktplaceParams scripts =
+merge nid infos OracleInfo {..} mMarketplaceRefScript escrowPubkeyHash mktValidator =
   let info = NE.head infos
       filteredInfos = NE.filter (\m -> mktInfoOwner m == mktInfoOwner info && mktInfoIsSell m == 0 && mktInfoIssuer m == mktInfoIssuer info) infos
-      inputs = foldMap (\info -> mustHaveInput $ mkMarketplaceInput (marketplaceValidator mktplaceParams scripts) mMarketplaceRefScript info Marketplace.MERGE) filteredInfos
-      escrowAddress = addressFromPubKeyHash nid (mktPrmEscrowValidator mktplaceParams)
+      inputs = foldMap (\info -> mustHaveInput $ mkMarketplaceInput mktValidator mMarketplaceRefScript info Marketplace.MERGE) filteredInfos
+      escrowAddress = addressFromPubKeyHash nid escrowPubkeyHash
       mergedAmt = sum $ mktInfoAmount <$> NE.toList infos
       newDatum =
         MarketplaceDatum

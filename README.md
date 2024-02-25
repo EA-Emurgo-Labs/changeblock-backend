@@ -38,3 +38,4 @@ To run the integration test, please ensure that `cardano-cli` and `cardano-node`
 - [Backend developer guide](docs/dev-guide.md)
 - [Wallet backend](docs/wallet-backend.md)
 - [Authorization header](docs/auth.md)
+- [Setting up Changeblock Backend with Docker](docs/docker.md)
