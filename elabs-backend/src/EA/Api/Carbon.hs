@@ -11,13 +11,13 @@ import Data.Text qualified as T
 import Data.Text.Encoding.Base16 (encodeBase16)
 import EA (
   EAApp,
-  EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvGYProviders, eaAppEnvScripts),
+  EAAppEnv (eaAppEnvEscrowPubkeyHash, eaAppEnvGYNetworkId, eaAppEnvGYProviders, eaAppEnvMarketplaceScriptOutRef, eaAppEnvMarketplaceVersion, eaAppEnvOracleNFTPolicyId, eaAppEnvOracleNFTTokenName, eaAppEnvOracleScriptHash, eaAppEnvScripts),
   eaLiftEither,
   eaLiftMaybe,
   eaSubmitTx,
  )
 import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
-import EA.Script (marketplaceValidator, nftMintingPolicy, oracleValidator)
+import EA.Script (marketplaceValidator)
 import EA.Script.Marketplace (MarketplaceParams (..))
 import EA.Tx.Changeblock.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken)
 import EA.Wallet (
@@ -32,10 +32,7 @@ import GeniusYield.TxBuilder (
   scriptAddress,
  )
 import GeniusYield.Types (
-  GYAssetClass (GYToken),
-  mintingPolicyId,
   unsafeTokenNameFromHex,
-  validatorHash,
  )
 import GeniusYield.Types.Address (addressToPubKeyHash)
 import Internal.Ipfs (ipfsAddFile, ipfsPinObject)
@@ -135,24 +132,27 @@ handleCarbonApi multipartData = do
 
   issuer <- eaLiftMaybe "Cannot decode address" (addressToPubKeyHash addr)
 
-  -- TODO: User proper policyId for Oracle NFT
-  let oracleNftAsset = mintingPolicyId $ nftMintingPolicy oref scripts
-      oracleNftAssetName = unsafeTokenNameFromHex "43424c"
-      orcAssetClass = GYToken oracleNftAsset oracleNftAssetName
+  -- Get oracle validator hash
+  oracleScriptHash <- asks eaAppEnvOracleScriptHash
 
-      -- TODO: user proper operaor pubkey hash for oracle validator
-      orcValidatorHash =
-        validatorHash $ oracleValidator orcAssetClass issuer scripts
+  -- Get oracle NFT
+  oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
+  oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  _escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
 
-      marketParams =
+  -- Get marketplace script ref
+  _marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
+  marketplaceVersion <- asks eaAppEnvMarketplaceVersion
+
+  let marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = orcValidatorHash
+          { mktPrmOracleValidator = oracleScriptHash
           , mktPrmEscrowValidator = issuer
           , -- \^ TODO: User proper pubkeyhash of escrow
-            mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
+            mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0
-            mktPrmOracleSymbol = oracleNftAsset
-          , mktPrmOracleTokenName = oracleNftAssetName
+            mktPrmOracleSymbol = oracleNftPolicy
+          , mktPrmOracleTokenName = oracleNftTokenName
           }
 
   ipfsAddResp <- ipfsAddFile filePart
