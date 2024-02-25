@@ -315,6 +315,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
   escrowPubkeyHash <- getEnv "ESCROW_PUBKEY_HASH"
 
   marketplaceScriptOutRef <- getEnv "MARKETPLACE_SCRIPT_OUTREF"
+  marketplaceVersion <- getEnv "MARKETPLACE_VERSION"
 
   return $
     EAAppEnv
@@ -332,6 +333,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvOracleNFTTokenName = fromString oracleNFTTokenName
       , eaAppEnvEscrowPubkeyHash = fromString escrowPubkeyHash
       , eaAppEnvMarketplaceScriptOutRef = fromString marketplaceScriptOutRef
+      , eaAppEnvMarketplaceVersion = fromString marketplaceVersion
       }
 
 server :: EAAppEnv -> Application

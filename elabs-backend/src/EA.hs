@@ -102,6 +102,7 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvOracleNFTTokenName :: !GYTokenName
   , eaAppEnvEscrowPubkeyHash :: !GYPubKeyHash
   , eaAppEnvMarketplaceScriptOutRef :: !GYTxOutRef
+  , eaAppEnvMarketplaceVersion :: !GYTokenName
   }
 
 runEAApp :: EAAppEnv -> EAApp a -> IO a

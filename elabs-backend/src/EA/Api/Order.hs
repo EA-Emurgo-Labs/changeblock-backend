@@ -25,7 +25,6 @@ import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types (
   GYTxOutRef,
   addressToPubKeyHash,
-  unsafeTokenNameFromHex,
  )
 import Internal.Wallet qualified as Wallet
 import Servant (
@@ -167,13 +166,14 @@ handleOrderBuy orderRequest = do
 
   -- Get marketplace script ref
   marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
+  marketplaceVersion <- asks eaAppEnvMarketplaceVersion
 
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = oracleScriptHash
           , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
-            mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
+            mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0
             mktPrmOracleSymbol = oracleNftPolicy
           , mktPrmOracleTokenName = oracleNftTokenName
@@ -235,13 +235,14 @@ handleOrderCancel orderRequest = do
 
   -- Get marketplace script ref
   marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
+  marketplaceVersion <- asks eaAppEnvMarketplaceVersion
 
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = oracleScriptHash
           , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
-            mktPrmVersion = unsafeTokenNameFromHex "76312e302e30"
+            mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0
             mktPrmOracleSymbol = oracleNftPolicy
           , mktPrmOracleTokenName = oracleNftTokenName
