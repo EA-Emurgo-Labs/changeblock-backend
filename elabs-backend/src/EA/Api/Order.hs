@@ -15,7 +15,7 @@ import EA (
  )
 import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
 import EA.Script.Marketplace (MarketplaceParams (..), mktInfoAmount)
-import EA.Tx.Changeblock.Marketplace (buy, cancel, partialBuy)
+import EA.Tx.Changeblock.Marketplace (buy, cancel, merge', partialBuy)
 import EA.Wallet (
   eaGetAddresses,
   eaGetCollateralFromInternalWallet,
@@ -28,7 +28,6 @@ import GeniusYield.Types (
  )
 import Internal.Wallet qualified as Wallet
 import Servant (
-  Capture,
   GenericMode ((:-)),
   HasServer (ServerT),
   JSON,
@@ -82,8 +81,7 @@ type OrderCancel =
 
 type OrderUpdate =
   "orders"
-    :> ReqBody '[JSON] OrderRequest
-    :> Capture "id" Int
+    :> ReqBody '[JSON] OrderUpdateRequest
     :> "update"
     :> Post '[JSON] SubmitTxResponse
 
@@ -106,6 +104,18 @@ data OrderBuyRequest = OrderBuyRequest
   , buyAmount :: !Int
   -- ^ The amount of carbon to buy.
   , orderId :: !GYTxOutRef
+  -- ^ The out ref of order
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
+
+data OrderUpdateRequest = OrderUpdateRequest
+  { ownerUpdateId :: !UserId
+  -- ^ The user ID.
+  , updateAmount :: !Int
+  -- ^ The amount of carbon to buy.
+  , updatePrice :: !Int
+  , orderUpdateId :: !GYTxOutRef
   -- ^ The out ref of order
   }
   deriving stock (Show, Generic)
@@ -277,5 +287,73 @@ handleOrderCancel orderRequest = do
   void $ eaSubmitTx $ Wallet.signTx txBody [internalKey, colKey, ownerKey]
   return $ txBodySubmitTxResponse txBody
 
-handleOrderUpdate :: OrderRequest -> Int -> EAApp SubmitTxResponse
-handleOrderUpdate = error "TODO"
+handleOrderUpdate :: OrderUpdateRequest -> EAApp SubmitTxResponse
+handleOrderUpdate orderRequest = do
+  nid <- asks eaAppEnvGYNetworkId
+  providers <- asks eaAppEnvGYProviders
+  marketplaceInfo <- eaMarketplaceAtTxOutRef $ orderUpdateId orderRequest
+  scripts <- asks eaAppEnvScripts
+
+  -- Get oracle info
+  oracleOutRef <- asks eaAppEnvOracleOutRef
+  oracleInfo <- eaOracleAtTxOutRef oracleOutRef
+
+  -- Get the user address from user ID. We don't need the signing key here.
+  (_, ownerKey) <-
+    eaLiftMaybe "No addresses found"
+      . listToMaybe
+      =<< eaGetAddresses (ownerUpdateId orderRequest)
+
+  -- Get the internal address pairs.
+  (internalAddr, internalKey) <-
+    eaLiftMaybe "No addresses found"
+      . listToMaybe
+      =<< eaGetInternalAddresses False
+
+  -- Get oracle validator hash
+  oracleScriptHash <- asks eaAppEnvOracleScriptHash
+
+  -- Get the collateral address and its signing key.
+  (collateral, colKey) <-
+    eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
+
+  -- Get oracle NFT
+  oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
+  oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+
+  -- Get marketplace script ref
+  marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
+  marketplaceVersion <- asks eaAppEnvMarketplaceVersion
+
+  let marketParams =
+        MarketplaceParams
+          { mktPrmOracleValidator = oracleScriptHash
+          , mktPrmEscrowValidator = escrowPubkeyHash
+          , -- \^ TODO: User proper pubkeyhash of escrow
+            mktPrmVersion = marketplaceVersion
+          , -- \^ It can be any string for now using v1.0.0
+            mktPrmOracleSymbol = oracleNftPolicy
+          , mktPrmOracleTokenName = oracleNftTokenName
+          }
+
+  let mMarketplaceRefScript = Just marketplaceScriptOutRef
+  let tx =
+        merge'
+          nid
+          (fromList [marketplaceInfo])
+          oracleInfo
+          (toInteger $ updatePrice orderRequest)
+          (toInteger $ updateAmount orderRequest)
+          1
+          mMarketplaceRefScript
+          marketParams
+          scripts
+
+  txBody <-
+    liftIO $
+      runGYTxMonadNode nid providers [internalAddr] internalAddr collateral (return tx)
+
+  void $ eaSubmitTx $ Wallet.signTx txBody [internalKey, colKey, ownerKey]
+
+  return $ txBodySubmitTxResponse txBody
