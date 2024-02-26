@@ -14,8 +14,8 @@ import EA (
   eaSubmitTx,
  )
 import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
-import EA.Script.Marketplace (MarketplaceParams (..))
-import EA.Tx.Changeblock.Marketplace (buy, cancel)
+import EA.Script.Marketplace (MarketplaceParams (..), mktInfoAmount)
+import EA.Tx.Changeblock.Marketplace (buy, cancel, partialBuy)
 import EA.Wallet (
   eaGetAddresses,
   eaGetCollateralFromInternalWallet,
@@ -103,7 +103,7 @@ data OrderRequest = OrderRequest
 data OrderBuyRequest = OrderBuyRequest
   { buyerId :: !UserId
   -- ^ The user ID.
-  , amount :: !Int
+  , buyAmount :: !Int
   -- ^ The amount of carbon to buy.
   , orderId :: !GYTxOutRef
   -- ^ The out ref of order
@@ -181,14 +181,26 @@ handleOrderBuy orderRequest = do
 
   let mMarketplaceRefScript = Just marketplaceScriptOutRef
   let tx =
-        buy
-          nid
-          marketplaceInfo
-          oracleInfo
-          buyer
-          mMarketplaceRefScript
-          marketParams
-          scripts
+        if mktInfoAmount marketplaceInfo == toInteger (buyAmount orderRequest)
+          then
+            buy
+              nid
+              marketplaceInfo
+              oracleInfo
+              buyer
+              mMarketplaceRefScript
+              marketParams
+              scripts
+          else
+            partialBuy
+              nid
+              marketplaceInfo
+              oracleInfo
+              buyer
+              (toInteger (buyAmount orderRequest))
+              mMarketplaceRefScript
+              marketParams
+              scripts
 
   txBody <-
     liftIO $
