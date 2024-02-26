@@ -15,7 +15,7 @@ import EA (
  )
 import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
 import EA.Script.Marketplace (MarketplaceParams (..), mktInfoAmount)
-import EA.Tx.Changeblock.Marketplace (buy, cancel, merge', partialBuy)
+import EA.Tx.Changeblock.Marketplace (buy, cancel, merge', partialBuy, sell)
 import EA.Wallet (
   eaGetAddresses,
   eaGetCollateralFromInternalWallet,
@@ -92,8 +92,10 @@ data OrderRequest = OrderRequest
   -- ^ The user ID.
   , amount :: !Int
   -- ^ The amount of carbon to mint.
-  , sell :: !Int
+  , sellPrice :: !Int
   -- ^ The sell price per unit of carbon.
+  , orderOriginId :: !GYTxOutRef
+  -- ^ The out ref of order
   }
   deriving stock (Show, Generic)
   deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
@@ -112,8 +114,6 @@ data OrderBuyRequest = OrderBuyRequest
 data OrderUpdateRequest = OrderUpdateRequest
   { ownerUpdateId :: !UserId
   -- ^ The user ID.
-  , updateAmount :: !Int
-  -- ^ The amount of carbon to buy.
   , updatePrice :: !Int
   , orderUpdateId :: !GYTxOutRef
   -- ^ The out ref of order
@@ -131,11 +131,76 @@ data OrderCancelRequest = OrderCancelRequest
   deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
 
 --------------------------------------------------------------------------------
-
--- TODO:
-
 handleOrderCreate :: OrderRequest -> EAApp SubmitTxResponse
-handleOrderCreate = error "TODO"
+handleOrderCreate orderRequest = do
+  nid <- asks eaAppEnvGYNetworkId
+  providers <- asks eaAppEnvGYProviders
+  marketplaceInfo <- eaMarketplaceAtTxOutRef $ orderOriginId orderRequest
+  scripts <- asks eaAppEnvScripts
+
+  -- Get oracle info
+  oracleOutRef <- asks eaAppEnvOracleOutRef
+  oracleInfo <- eaOracleAtTxOutRef oracleOutRef
+
+  -- Get the user address from user ID. We don't need the signing key here.
+  (_, ownerKey) <-
+    eaLiftMaybe "No addresses found"
+      . listToMaybe
+      =<< eaGetAddresses (userId orderRequest)
+
+  -- Get the internal address pairs.
+  (internalAddr, internalKey) <-
+    eaLiftMaybe "No addresses found"
+      . listToMaybe
+      =<< eaGetInternalAddresses False
+
+  -- Get oracle validator hash
+  oracleScriptHash <- asks eaAppEnvOracleScriptHash
+
+  -- Get the collateral address and its signing key.
+  (collateral, colKey) <-
+    eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
+
+  -- Get oracle NFT
+  oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
+  oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+
+  -- Get marketplace script ref
+  marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
+  marketplaceVersion <- asks eaAppEnvMarketplaceVersion
+
+  let marketParams =
+        MarketplaceParams
+          { mktPrmOracleValidator = oracleScriptHash
+          , mktPrmEscrowValidator = escrowPubkeyHash
+          , -- \^ TODO: User proper pubkeyhash of escrow
+            mktPrmVersion = marketplaceVersion
+          , -- \^ It can be any string for now using v1.0.0
+            mktPrmOracleSymbol = oracleNftPolicy
+          , mktPrmOracleTokenName = oracleNftTokenName
+          }
+
+  let mMarketplaceRefScript = Just marketplaceScriptOutRef
+  let tx =
+        merge'
+          nid
+          (fromList [marketplaceInfo])
+          oracleInfo
+          (toInteger $ sellPrice orderRequest)
+          (toInteger $ amount orderRequest)
+          1
+          mMarketplaceRefScript
+          marketParams
+          scripts
+
+  txBody <-
+    liftIO $
+      runGYTxMonadNode nid providers [internalAddr] internalAddr collateral (return tx)
+
+  void $ eaSubmitTx $ Wallet.signTx txBody [internalKey, colKey, ownerKey]
+
+  return $ txBodySubmitTxResponse txBody
 
 handleOrderBuy :: OrderBuyRequest -> EAApp SubmitTxResponse
 handleOrderBuy orderRequest = do
@@ -339,14 +404,12 @@ handleOrderUpdate orderRequest = do
 
   let mMarketplaceRefScript = Just marketplaceScriptOutRef
   let tx =
-        merge'
+        sell
           nid
-          (fromList [marketplaceInfo])
+          marketplaceInfo
           oracleInfo
-          (toInteger $ updatePrice orderRequest)
-          (toInteger $ updateAmount orderRequest)
-          1
           mMarketplaceRefScript
+          (toInteger $ updatePrice orderRequest)
           marketParams
           scripts
 
