@@ -11,6 +11,8 @@ module EA.Script.Marketplace (
   marketplaceDatumToInfo,
 ) where
 
+import Data.Aeson qualified as Aeson
+import Data.Swagger qualified as Swagger
 import GeniusYield.Types
 import PlutusLedgerApi.V1 (CurrencySymbol, PubKeyHash, ScriptHash, TokenName)
 import PlutusLedgerApi.V1.Value (assetClass)
@@ -94,7 +96,8 @@ data MarketplaceInfo = MarketplaceInfo
   , mktInfoIssuer :: GYPubKeyHash
   , mktInfoIsSell :: Integer
   }
-  deriving stock (Show)
+  deriving stock (Show, Generic)
+  deriving anyclass (Aeson.ToJSON, Swagger.ToSchema)
 
 marketplaceInfoToDatum :: MarketplaceInfo -> MarketplaceDatum
 marketplaceInfoToDatum MarketplaceInfo {..} =

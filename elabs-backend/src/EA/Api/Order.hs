@@ -10,11 +10,12 @@ import EA (
   EAAppEnv (..),
   eaLiftMaybe,
   eaMarketplaceAtTxOutRef,
+  eaMarketplaceInfos,
   eaOracleAtTxOutRef,
   eaSubmitTx,
  )
 import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
-import EA.Script.Marketplace (MarketplaceParams (..), mktInfoAmount)
+import EA.Script.Marketplace (MarketplaceInfo, MarketplaceParams (..), mktInfoAmount)
 import EA.Tx.Changeblock.Marketplace (buy, cancel, merge', partialBuy, sell)
 import EA.Wallet (
   eaGetAddresses,
@@ -29,6 +30,7 @@ import GeniusYield.Types (
 import Internal.Wallet qualified as Wallet
 import Servant (
   GenericMode ((:-)),
+  Get,
   HasServer (ServerT),
   JSON,
   NamedRoutes,
@@ -46,6 +48,7 @@ data OrderApi mode = OrderApi
   , orderBuy :: mode :- OrderBuy
   , orderCancel :: mode :- OrderCancel
   , orderUpdate :: mode :- OrderUpdate
+  , orderList :: mode :- OrderList
   }
   deriving stock (Generic)
 
@@ -59,7 +62,12 @@ handleOrderApi =
     , orderBuy = handleOrderBuy
     , orderCancel = handleOrderCancel
     , orderUpdate = handleOrderUpdate
+    , orderList = handleOrderList
     }
+
+type OrderList =
+  "orders"
+    :> Get '[JSON] [MarketplaceInfo]
 
 type OrderCreate =
   "orders"
@@ -420,3 +428,29 @@ handleOrderUpdate orderRequest = do
   void $ eaSubmitTx $ Wallet.signTx txBody [internalKey, colKey, ownerKey]
 
   return $ txBodySubmitTxResponse txBody
+
+handleOrderList :: EAApp [MarketplaceInfo]
+handleOrderList = do
+  -- Get oracle validator hash
+  oracleScriptHash <- asks eaAppEnvOracleScriptHash
+
+  -- Get oracle NFT
+  oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
+  oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+
+  -- Get marketplace script ref
+  marketplaceVersion <- asks eaAppEnvMarketplaceVersion
+
+  let marketParams =
+        MarketplaceParams
+          { mktPrmOracleValidator = oracleScriptHash
+          , mktPrmEscrowValidator = escrowPubkeyHash
+          , -- \^ TODO: User proper pubkeyhash of escrow
+            mktPrmVersion = marketplaceVersion
+          , -- \^ It can be any string for now using v1.0.0
+            mktPrmOracleSymbol = oracleNftPolicy
+          , mktPrmOracleTokenName = oracleNftTokenName
+          }
+
+  asks eaMarketplaceInfos marketParams
