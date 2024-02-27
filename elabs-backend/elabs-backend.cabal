@@ -143,6 +143,7 @@ library
     EA.Script.Oracle
     EA.Tx.Changeblock.Marketplace
     EA.Tx.Changeblock.MintIpfsNftCarbonToken
+    EA.Tx.Changeblock.Oracle
     EA.Wallet
     Internal.Ipfs
     Internal.Ipfs.Types

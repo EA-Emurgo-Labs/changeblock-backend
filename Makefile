@@ -60,3 +60,6 @@ show-internal-address:
 
 show-internal-collateral-address:
 	cabal run elabs-backend:app -- internaladdresses --collateral
+
+create-oracle:
+	cabal run elabs-backend:app -- createOracle --rate 500000
