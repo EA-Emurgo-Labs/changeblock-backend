@@ -369,11 +369,11 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
   bfIpfsToken <- getEnv "BLOCKFROST_IPFS"
 
   oracleOutRef <- getEnv "ORACLE_OUTREF"
-  oraclePubkeyHash <- getEnv "ORACLE_PUBKEY_HASH"
+  oracleOperatorAddr <- getEnv "ORACLE_OPERATOR_ADDR"
   oracleNFTPolicyId <- getEnv "ORACLE_NFT_POLICY_ID"
   oracleNFTTokenName <- getEnv "ORACLE_NFT_TOKENNAME"
 
-  escrowPubkeyHash <- getEnv "ESCROW_PUBKEY_HASH"
+  escrowAddr <- getEnv "ESCROW_ADDR"
 
   marketplaceScriptOutRef <- getEnv "MARKETPLACE_SCRIPT_OUTREF"
   marketplaceVersion <- getEnv "MARKETPLACE_VERSION"
@@ -389,10 +389,10 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
       , eaAppEnvAuthTokens = tokens
       , eaAppEnvOracleOutRef = fromString oracleOutRef
-      , eaAppEnvOracleOperatorAddr = fromString oraclePubkeyHash
+      , eaAppEnvOracleOperatorAddr = fromString oracleOperatorAddr
       , eaAppEnvOracleNFTPolicyId = fromString oracleNFTPolicyId
       , eaAppEnvOracleNFTTokenName = fromString oracleNFTTokenName
-      , eaAppEnvEscrowPubkeyHash = fromString escrowPubkeyHash
+      , eaAppEnvEscrowAddr = fromString escrowAddr
       , eaAppEnvMarketplaceScriptOutRef = fromString marketplaceScriptOutRef
       , eaAppEnvMarketplaceVersion = fromString marketplaceVersion
       }

@@ -12,7 +12,7 @@ import Data.Text qualified as T
 import Data.Text.Encoding.Base16 (encodeBase16)
 import EA (
   EAApp,
-  EAAppEnv (eaAppEnvEscrowPubkeyHash, eaAppEnvGYNetworkId, eaAppEnvGYProviders, eaAppEnvMarketplaceVersion, eaAppEnvOracleNFTPolicyId, eaAppEnvOracleNFTTokenName, eaAppEnvScripts),
+  EAAppEnv (eaAppEnvEscrowAddr, eaAppEnvGYNetworkId, eaAppEnvGYProviders, eaAppEnvMarketplaceVersion, eaAppEnvOracleNFTPolicyId, eaAppEnvOracleNFTTokenName, eaAppEnvScripts),
   eaAppEnvOracleOperatorAddr,
   eaLiftEither,
   eaLiftMaybe,
@@ -141,7 +141,7 @@ handleCarbonApi multipartData = do
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
   eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
-  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+  escrowAddr <- asks eaAppEnvEscrowAddr
 
   -- Get marketplace version
   marketplaceVersion <- asks eaAppEnvMarketplaceVersion
@@ -154,7 +154,7 @@ handleCarbonApi multipartData = do
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = escrowPubkeyHash
+          , mktPrmEscrowValidator = fromJust $ addressToPubKeyHash $ addressFromBech32 escrowAddr
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0

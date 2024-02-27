@@ -50,7 +50,6 @@ import GeniusYield.Types (
   GYMintingPolicyId,
   GYNetworkId,
   GYProviders (..),
-  GYPubKeyHash,
   GYQueryUTxO (..),
   GYTokenName,
   GYTx,
@@ -100,7 +99,7 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvOracleOperatorAddr :: !GYAddressBech32
   , eaAppEnvOracleNFTPolicyId :: !GYMintingPolicyId
   , eaAppEnvOracleNFTTokenName :: !GYTokenName
-  , eaAppEnvEscrowPubkeyHash :: !GYPubKeyHash
+  , eaAppEnvEscrowAddr :: !GYAddressBech32
   , eaAppEnvMarketplaceScriptOutRef :: !GYTxOutRef
   , eaAppEnvMarketplaceVersion :: !GYTokenName
   }

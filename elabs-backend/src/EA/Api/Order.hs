@@ -175,7 +175,7 @@ handleOrderCreate orderRequest = do
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
   eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
-  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+  escrowAddr <- asks eaAppEnvEscrowAddr
 
   -- Get oracle validator hash
   let orcAssetClass = GYToken oracleNftPolicy oracleNftTokenName
@@ -189,7 +189,7 @@ handleOrderCreate orderRequest = do
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = escrowPubkeyHash
+          , mktPrmEscrowValidator = fromJust $ addressToPubKeyHash $ addressFromBech32 escrowAddr
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0
@@ -251,7 +251,7 @@ handleOrderBuy orderRequest = do
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
   eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
-  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+  escrowAddr <- asks eaAppEnvEscrowAddr
 
   -- Get oracle validator hash
   let orcAssetClass = GYToken oracleNftPolicy oracleNftTokenName
@@ -265,7 +265,7 @@ handleOrderBuy orderRequest = do
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = escrowPubkeyHash
+          , mktPrmEscrowValidator = fromJust $ addressToPubKeyHash $ addressFromBech32 escrowAddr
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0
@@ -335,7 +335,7 @@ handleOrderCancel orderRequest = do
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
   eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
-  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+  escrowAddr <- asks eaAppEnvEscrowAddr
 
   -- Get marketplace script ref
   marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
@@ -349,7 +349,7 @@ handleOrderCancel orderRequest = do
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = escrowPubkeyHash
+          , mktPrmEscrowValidator = fromJust $ addressToPubKeyHash $ addressFromBech32 escrowAddr
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0
@@ -405,7 +405,7 @@ handleOrderUpdate orderRequest = do
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
   eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
-  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+  escrowAddr <- asks eaAppEnvEscrowAddr
 
   -- Get marketplace script ref
   marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
@@ -418,7 +418,7 @@ handleOrderUpdate orderRequest = do
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = escrowPubkeyHash
+          , mktPrmEscrowValidator = fromJust $ addressToPubKeyHash $ addressFromBech32 escrowAddr
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0
@@ -452,7 +452,7 @@ handleOrderList = do
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
   eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
-  escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+  escrowAddr <- asks eaAppEnvEscrowAddr
 
   -- Get marketplace script ref
   marketplaceVersion <- asks eaAppEnvMarketplaceVersion
@@ -465,7 +465,7 @@ handleOrderList = do
   let marketParams =
         MarketplaceParams
           { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = escrowPubkeyHash
+          , mktPrmEscrowValidator = fromJust $ addressToPubKeyHash $ addressFromBech32 escrowAddr
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
           , -- \^ It can be any string for now using v1.0.0
