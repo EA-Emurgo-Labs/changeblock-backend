@@ -47,7 +47,6 @@ import GeniusYield.Types (
   GYDatum,
   GYLogNamespace,
   GYLogSeverity (..),
-  GYMintingPolicyId,
   GYNetworkId,
   GYProviders (..),
   GYQueryUTxO (..),
@@ -97,7 +96,7 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvAuthTokens :: ![Text]
   , eaAppEnvOracleOutRef :: !GYTxOutRef
   , eaAppEnvOracleOperatorAddr :: !GYAddressBech32
-  , eaAppEnvOracleNFTPolicyId :: !GYMintingPolicyId
+  , eaAppEnvOracleNFTOutRef :: !GYTxOutRef
   , eaAppEnvOracleNFTTokenName :: !GYTokenName
   , eaAppEnvEscrowAddr :: !GYAddressBech32
   , eaAppEnvMarketplaceScriptOutRef :: !GYTxOutRef

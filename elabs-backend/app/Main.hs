@@ -370,7 +370,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
 
   oracleOutRef <- getEnv "ORACLE_OUTREF"
   oracleOperatorAddr <- getEnv "ORACLE_OPERATOR_ADDR"
-  oracleNFTPolicyId <- getEnv "ORACLE_NFT_POLICY_ID"
+  oracleNFTOutRef <- getEnv "ORACLE_NFT_OUTREF"
   oracleNFTTokenName <- getEnv "ORACLE_NFT_TOKENNAME"
 
   escrowAddr <- getEnv "ESCROW_ADDR"
@@ -390,7 +390,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvAuthTokens = tokens
       , eaAppEnvOracleOutRef = fromString oracleOutRef
       , eaAppEnvOracleOperatorAddr = fromString oracleOperatorAddr
-      , eaAppEnvOracleNFTPolicyId = fromString oracleNFTPolicyId
+      , eaAppEnvOracleNFTOutRef = fromString oracleNFTOutRef
       , eaAppEnvOracleNFTTokenName = fromString oracleNFTTokenName
       , eaAppEnvEscrowAddr = fromString escrowAddr
       , eaAppEnvMarketplaceScriptOutRef = fromString marketplaceScriptOutRef
