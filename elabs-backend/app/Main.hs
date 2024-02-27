@@ -369,7 +369,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
   bfIpfsToken <- getEnv "BLOCKFROST_IPFS"
 
   oracleOutRef <- getEnv "ORACLE_OUTREF"
-  oracleScriptHash <- getEnv "ORACLE_SCRIPT_HASH"
+  oraclePubkeyHash <- getEnv "ORACLE_PUBKEY_HASH"
   oracleNFTPolicyId <- getEnv "ORACLE_NFT_POLICY_ID"
   oracleNFTTokenName <- getEnv "ORACLE_NFT_TOKENNAME"
 
@@ -389,7 +389,7 @@ initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
       , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
       , eaAppEnvAuthTokens = tokens
       , eaAppEnvOracleOutRef = fromString oracleOutRef
-      , eaAppEnvOracleScriptHash = fromString oracleScriptHash
+      , eaAppEnvOracleOperatorAddr = fromString oraclePubkeyHash
       , eaAppEnvOracleNFTPolicyId = fromString oracleNFTPolicyId
       , eaAppEnvOracleNFTTokenName = fromString oracleNFTTokenName
       , eaAppEnvEscrowPubkeyHash = fromString escrowPubkeyHash

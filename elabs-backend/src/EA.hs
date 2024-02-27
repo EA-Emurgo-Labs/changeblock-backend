@@ -43,6 +43,7 @@ import EA.Script.Oracle (
 import GeniusYield.TxBuilder (adaOnlyUTxOPure, utxoDatumPure)
 import GeniusYield.Types (
   GYAddress,
+  GYAddressBech32,
   GYDatum,
   GYLogNamespace,
   GYLogSeverity (..),
@@ -56,7 +57,6 @@ import GeniusYield.Types (
   GYTxId,
   GYTxOutRef,
   GYUTxO (utxoRef),
-  GYValidatorHash,
   addressFromValidator,
   gyLog,
   gyLogDebug,
@@ -97,7 +97,7 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvBlockfrostIpfsProjectId :: !String
   , eaAppEnvAuthTokens :: ![Text]
   , eaAppEnvOracleOutRef :: !GYTxOutRef
-  , eaAppEnvOracleScriptHash :: !GYValidatorHash
+  , eaAppEnvOracleOperatorAddr :: !GYAddressBech32
   , eaAppEnvOracleNFTPolicyId :: !GYMintingPolicyId
   , eaAppEnvOracleNFTTokenName :: !GYTokenName
   , eaAppEnvEscrowPubkeyHash :: !GYPubKeyHash

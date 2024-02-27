@@ -4,6 +4,7 @@ module EA.Api.Order (
 ) where
 
 import Data.Aeson qualified as Aeson
+import Data.Maybe (fromJust)
 import Data.Swagger qualified as Swagger
 import EA (
   EAApp,
@@ -15,6 +16,7 @@ import EA (
   eaSubmitTx,
  )
 import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
+import EA.Script (oracleValidator)
 import EA.Script.Marketplace (MarketplaceInfo, MarketplaceParams (..), mktInfoAmount)
 import EA.Tx.Changeblock.Marketplace (buy, cancel, merge', partialBuy, sell)
 import EA.Wallet (
@@ -24,9 +26,12 @@ import EA.Wallet (
  )
 import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types (
+  GYAssetClass (GYToken),
   GYTxOutRef,
+  addressFromBech32,
   addressToPubKeyHash,
  )
+import GeniusYield.Types.Script (validatorHash)
 import Internal.Wallet qualified as Wallet
 import Servant (
   GenericMode ((:-)),
@@ -162,9 +167,6 @@ handleOrderCreate orderRequest = do
       . listToMaybe
       =<< eaGetInternalAddresses False
 
-  -- Get oracle validator hash
-  oracleScriptHash <- asks eaAppEnvOracleScriptHash
-
   -- Get the collateral address and its signing key.
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
@@ -172,7 +174,13 @@ handleOrderCreate orderRequest = do
   -- Get oracle NFT
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
   escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+
+  -- Get oracle validator hash
+  let orcAssetClass = GYToken oracleNftPolicy oracleNftTokenName
+      orcValidatorHash =
+        validatorHash $ oracleValidator orcAssetClass (fromJust $ addressToPubKeyHash $ addressFromBech32 eaAppEnvOracleOperatorAddr) scripts
 
   -- Get marketplace script ref
   marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
@@ -180,7 +188,7 @@ handleOrderCreate orderRequest = do
 
   let marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = oracleScriptHash
+          { mktPrmOracleValidator = orcValidatorHash
           , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
@@ -233,9 +241,6 @@ handleOrderBuy orderRequest = do
       . listToMaybe
       =<< eaGetInternalAddresses False
 
-  -- Get oracle validator hash
-  oracleScriptHash <- asks eaAppEnvOracleScriptHash
-
   -- Get the collateral address and its signing key.
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
@@ -245,7 +250,13 @@ handleOrderBuy orderRequest = do
   -- Get oracle NFT
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
   escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
+
+  -- Get oracle validator hash
+  let orcAssetClass = GYToken oracleNftPolicy oracleNftTokenName
+      orcValidatorHash =
+        validatorHash $ oracleValidator orcAssetClass (fromJust $ addressToPubKeyHash $ addressFromBech32 eaAppEnvOracleOperatorAddr) scripts
 
   -- Get marketplace script ref
   marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
@@ -253,7 +264,7 @@ handleOrderBuy orderRequest = do
 
   let marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = oracleScriptHash
+          { mktPrmOracleValidator = orcValidatorHash
           , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
@@ -316,9 +327,6 @@ handleOrderCancel orderRequest = do
       . listToMaybe
       =<< eaGetInternalAddresses False
 
-  -- Get oracle validator hash
-  oracleScriptHash <- asks eaAppEnvOracleScriptHash
-
   -- Get the collateral address and its signing key.
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
@@ -326,15 +334,21 @@ handleOrderCancel orderRequest = do
   -- Get oracle NFT
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
   escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
 
   -- Get marketplace script ref
   marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
   marketplaceVersion <- asks eaAppEnvMarketplaceVersion
 
+  -- Get oracle validator hash
+  let orcAssetClass = GYToken oracleNftPolicy oracleNftTokenName
+      orcValidatorHash =
+        validatorHash $ oracleValidator orcAssetClass (fromJust $ addressToPubKeyHash $ addressFromBech32 eaAppEnvOracleOperatorAddr) scripts
+
   let marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = oracleScriptHash
+          { mktPrmOracleValidator = orcValidatorHash
           , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
@@ -383,9 +397,6 @@ handleOrderUpdate orderRequest = do
       . listToMaybe
       =<< eaGetInternalAddresses False
 
-  -- Get oracle validator hash
-  oracleScriptHash <- asks eaAppEnvOracleScriptHash
-
   -- Get the collateral address and its signing key.
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
@@ -393,15 +404,20 @@ handleOrderUpdate orderRequest = do
   -- Get oracle NFT
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
   escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
 
   -- Get marketplace script ref
   marketplaceScriptOutRef <- asks eaAppEnvMarketplaceScriptOutRef
   marketplaceVersion <- asks eaAppEnvMarketplaceVersion
 
+  -- Get oracle validator hash
+  let orcAssetClass = GYToken oracleNftPolicy oracleNftTokenName
+      orcValidatorHash =
+        validatorHash $ oracleValidator orcAssetClass (fromJust $ addressToPubKeyHash $ addressFromBech32 eaAppEnvOracleOperatorAddr) scripts
   let marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = oracleScriptHash
+          { mktPrmOracleValidator = orcValidatorHash
           , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
@@ -431,20 +447,24 @@ handleOrderUpdate orderRequest = do
 
 handleOrderList :: EAApp [MarketplaceInfo]
 handleOrderList = do
-  -- Get oracle validator hash
-  oracleScriptHash <- asks eaAppEnvOracleScriptHash
-
+  scripts <- asks eaAppEnvScripts
   -- Get oracle NFT
   oracleNftPolicy <- asks eaAppEnvOracleNFTPolicyId
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
+  eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
   escrowPubkeyHash <- asks eaAppEnvEscrowPubkeyHash
 
   -- Get marketplace script ref
   marketplaceVersion <- asks eaAppEnvMarketplaceVersion
 
+  -- Get oracle validator hash
+  let orcAssetClass = GYToken oracleNftPolicy oracleNftTokenName
+      orcValidatorHash =
+        validatorHash $ oracleValidator orcAssetClass (fromJust $ addressToPubKeyHash $ addressFromBech32 eaAppEnvOracleOperatorAddr) scripts
+
   let marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = oracleScriptHash
+          { mktPrmOracleValidator = orcValidatorHash
           , mktPrmEscrowValidator = escrowPubkeyHash
           , -- \^ TODO: User proper pubkeyhash of escrow
             mktPrmVersion = marketplaceVersion
