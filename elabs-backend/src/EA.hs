@@ -55,7 +55,7 @@ import GeniusYield.Types (
   GYTxId,
   GYTxOutRef,
   GYUTxO (utxoRef),
-  addressFromBech32,
+  addressFromValidator,
   gyLog,
   gyLogDebug,
   gyLogError,
@@ -214,12 +214,12 @@ eaMarketplaceAtTxOutRef oref = do
 eaMarketplaceInfos :: MarketplaceParams -> EAApp [MarketplaceInfo]
 eaMarketplaceInfos mktPlaceParams = do
   providers <- asks eaAppEnvGYProviders
-  _nid <- asks eaAppEnvGYNetworkId
+  nid <- asks eaAppEnvGYNetworkId
   scripts <- asks eaAppEnvScripts
 
-  let _mktPlaceValidator = marketplaceValidator mktPlaceParams scripts
-      marketplaceAddr = addressFromBech32 $ fromString "addr_test1wrhwew26dzrjudayzfmlph0gh4ply9r9dcvcz6ngfdg2n6qlhpghj"
-  -- addressFromValidator nid mktPlaceValidator
+  let mktPlaceValidator = marketplaceValidator mktPlaceParams scripts
+      marketplaceAddr = addressFromValidator nid mktPlaceValidator
+  -- addressFromBech32 $ fromString "addr_test1wrhwew26dzrjudayzfmlph0gh4ply9r9dcvcz6ngfdg2n6qlhpghj"
 
   _ <- eaLogDebug "API.Carbon" $ show marketplaceAddr
 

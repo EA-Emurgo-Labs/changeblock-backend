@@ -454,29 +454,29 @@ handleOrderList :: EAApp [MarketplaceInfo]
 handleOrderList = do
   scripts <- asks eaAppEnvScripts
   -- Get oracle NFT
-  oracleOref <- asks eaAppEnvOracleNFTOutRef
+  _oracleOref <- asks eaAppEnvOracleNFTOutRef
   oracleNftTokenName <- asks eaAppEnvOracleNFTTokenName
-  eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
-  escrowAddr <- asks eaAppEnvEscrowAddr
+  _eaAppEnvOracleOperatorAddr <- asks eaAppEnvOracleOperatorAddr
+  _escrowAddr <- asks eaAppEnvEscrowAddr
 
   -- Get marketplace script ref
-  marketplaceVersion <- asks eaAppEnvMarketplaceVersion
+  _marketplaceVersion <- asks eaAppEnvMarketplaceVersion
 
   -- Get oracle validator hash
-  let oracleNftAsset = mintingPolicyId $ nftMintingPolicy oracleOref scripts
-      orcAssetClass = GYToken oracleNftAsset oracleNftTokenName
-      orcValidatorHash =
-        validatorHash $ oracleValidator orcAssetClass (fromJust $ addressToPubKeyHash $ addressFromBech32 eaAppEnvOracleOperatorAddr) scripts
+  let _oracleNftAsset = mintingPolicyId $ nftMintingPolicy (fromString "1c5a4c402c51deb2eec66edff6dcf362e0dcd81722301d5e663b75ff317cf765#0") scripts
+      _orcAssetClass = GYToken _oracleNftAsset oracleNftTokenName
+      _orcValidatorHash =
+        validatorHash $ oracleValidator _orcAssetClass (fromJust $ addressToPubKeyHash $ addressFromBech32 _eaAppEnvOracleOperatorAddr) scripts
 
   let marketParams =
         MarketplaceParams
-          { mktPrmOracleValidator = orcValidatorHash
-          , mktPrmEscrowValidator = fromJust $ addressToPubKeyHash $ addressFromBech32 escrowAddr
+          { mktPrmOracleValidator = fromString "1e82fa9415dfa54f7185df654ad15958ba51cf833963f438cc2d5e81"
+          , mktPrmEscrowValidator = fromString "48946af1bb8e9480298e8cdf47cf7eed715956f5abdeee92ca0a26ee"
           , -- \^ TODO: User proper pubkeyhash of escrow
-            mktPrmVersion = marketplaceVersion
+            mktPrmVersion = fromString "5465737433"
           , -- \^ It can be any string for now using v1.0.0
-            mktPrmOracleSymbol = oracleNftAsset
-          , mktPrmOracleTokenName = oracleNftTokenName
+            mktPrmOracleSymbol = fromString "decafe8e7478124516e85d36c847f72f654976a544aea5d0021d50be"
+          , mktPrmOracleTokenName = fromString "6f7261636c655f6e66745f32"
           }
 
   asks eaMarketplaceInfos marketParams
