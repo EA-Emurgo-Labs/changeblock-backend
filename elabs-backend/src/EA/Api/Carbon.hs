@@ -1,6 +1,5 @@
 module EA.Api.Carbon (
   CarbonApi,
-  CarbonMintRequest (..),
   handleCarbonApi,
 )
 where
@@ -19,7 +18,12 @@ import EA (
   eaLiftMaybe,
   eaSubmitTx,
  )
-import EA.Api.Types (SubmitTxResponse, UserId, txBodySubmitTxResponse)
+import EA.Api.Types (
+  CarbonMintRequest (amount, sell, userId),
+  SubmitTxResponse,
+  txBodySubmitTxResponse,
+ )
+import EA.Orphans (MultipartFormDataTmp)
 import EA.Script (marketplaceValidator, nftMintingPolicy, oracleValidator)
 import EA.Script.Marketplace (MarketplaceParams (..))
 import EA.Tx.Changeblock.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken)
@@ -45,10 +49,9 @@ import GeniusYield.Types.Address (addressToPubKeyHash)
 import Internal.Ipfs (ipfsAddFile, ipfsPinObject)
 import Internal.Ipfs.Types (IpfsAddResponse (..), IpfsPin (..))
 import Internal.Wallet qualified as Wallet
-import Servant (Header, JSON, Post, type (:>))
+import Servant (JSON, Post, Tagged, type (:>))
 import Servant.Multipart (
   MultipartData,
-  MultipartForm,
   Tmp,
   lookupFile,
   lookupInput,
@@ -61,34 +64,23 @@ type CarbonApi = CarbonMint
 
 type CarbonMint =
   "carbon"
-    :> MultipartForm Tmp (MultipartData Tmp)
+    :> MultipartFormDataTmp
     :> "mint"
     :> Post '[JSON] CarbonMintResponse
 
 --------------------------------------------------------------------------------
--- FIXME: This is because of MultiparForm, which is not supported by HasSwagger
-
-type CarbonMintFix =
-  "carbon"
-    :> Header "user_id" UserId
-    :> "mint"
-    :> Post '[JSON] CarbonMintResponse
+-- Swagger woraround instance for 'CarbonApi'
 
 instance {-# OVERLAPPING #-} HasSwagger CarbonApi where
-  toSwagger _ = toSwagger (Proxy :: Proxy CarbonMintFix)
+  toSwagger _ = toSwagger (Proxy :: Proxy CarbonMint')
+
+type CarbonMint' =
+  "carbon"
+    :> Tagged CarbonMintRequest MultipartFormDataTmp
+    :> "mint"
+    :> Post '[JSON] CarbonMintResponse
 
 --------------------------------------------------------------------------------
-
-data CarbonMintRequest = CarbonMintRequest
-  { userId :: !UserId
-  -- ^ The user ID.
-  , amount :: !Natural
-  -- ^ The amount of carbon to mint.
-  , sell :: !Natural
-  -- ^ The sell price per unit of carbon.
-  }
-  deriving stock (Show, Generic)
-  deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
 
 data CarbonMintResponse = CarbonMintResponse
   { ipfsHash :: !Text

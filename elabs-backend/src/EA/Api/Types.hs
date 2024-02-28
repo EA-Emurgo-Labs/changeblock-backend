@@ -6,6 +6,7 @@ module EA.Api.Types (
   WalletParams (..),
   UnsignedTxResponse (..),
   WalletResponse (..),
+  CarbonMintRequest (..),
   txBodySubmitTxResponse,
   unSignedTxWithFee,
 ) where
@@ -83,12 +84,23 @@ unSignedTxWithFee txBody =
     , txFee = Just $ txBodyFee txBody
     }
 
+data CarbonMintRequest = CarbonMintRequest
+  { userId :: !UserId
+  -- ^ The user ID.
+  , amount :: !Natural
+  -- ^ The amount of carbon to mint.
+  , sell :: !Natural
+  -- ^ The sell price per unit of carbon.
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (Aeson.FromJSON, Aeson.ToJSON, Swagger.ToSchema)
+
 --------------------------------------------------------------------------------
 -- UserId
 
 newtype UserId = UserId {unUserId :: Natural}
   deriving stock (Eq, Ord, Show, Generic)
-  deriving anyclass (Swagger.ToSchema, Swagger.ToParamSchema)
+  deriving anyclass (Swagger.ToSchema, Aeson.ToJSON, Swagger.ToParamSchema)
 
 instance Aeson.FromJSON UserId where
   parseJSON = fmap UserId . Aeson.parseJSON

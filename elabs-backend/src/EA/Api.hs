@@ -1,4 +1,5 @@
 module EA.Api (
+  Api,
   appApi,
   apiSwagger,
   apiServer,
@@ -7,7 +8,7 @@ module EA.Api (
 import Data.Swagger (Swagger)
 import EA (EAApp, EAAppEnv (eaAppEnvAuthTokens), eaThrow)
 import EA.Api.Carbon (CarbonApi, handleCarbonApi)
-import EA.Api.Order
+import EA.Api.Order (OrderApi, handleOrderApi)
 import EA.Api.Tx (TxApi, handleTxApi)
 import EA.Api.Types (AuthorizationHeader (unAuthorizationHeader))
 import EA.Api.Wallet (WalletApi, handleWalletApi)
@@ -26,8 +27,7 @@ import Servant.Swagger (HasSwagger, toSwagger)
 --------------------------------------------------------------------------------
 
 type Api =
-  "api"
-    :> "v0"
+  "v0"
     :> Header "Authorization" AuthorizationHeader
     :> NamedRoutes ChangeblockApi
 

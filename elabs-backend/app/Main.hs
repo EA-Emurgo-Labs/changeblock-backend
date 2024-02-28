@@ -16,8 +16,9 @@ import Database.Persist.Sqlite (
   runSqlPool,
  )
 import EA (EAAppEnv (..), eaLiftMaybe, eaSubmitTx, runEAApp)
-import EA.Api (apiServer, apiSwagger, appApi)
+import EA.Api (apiSwagger)
 import EA.Internal (fromLogLevel)
+import EA.Routes (appRoutes, routes)
 import EA.Script (Scripts (..), nftMintingPolicy, oracleValidator)
 import EA.Tx.Changeblock.Oracle (createOracle)
 import EA.Wallet (eaGetCollateralFromInternalWallet, eaGetInternalAddresses, eaSelectOref)
@@ -407,5 +408,5 @@ server env =
             { corsRequestHeaders = [HttpTypes.hContentType] -- FIXME: better CORS policy
             }
     )
-    $ serve appApi
-    $ hoistServer appApi (Handler . ExceptT . try . runEAApp env) apiServer
+    $ serve appRoutes
+    $ hoistServer appRoutes (Handler . ExceptT . try . runEAApp env) routes

@@ -40,13 +40,14 @@ common deps
     , Glob
     , http-client
     , http-client-tls
+    , http-media
     , http-types
+    , lens
     , memory
     , monad-logger
     , monad-metrics
     , mtl
     , newtype
-    , optics
     , persistent
     , persistent-sqlite
     , plutus-ledger-api
@@ -138,6 +139,8 @@ library
     EA.Api.Types
     EA.Api.Wallet
     EA.Internal
+    EA.Orphans
+    EA.Routes
     EA.Script
     EA.Script.Marketplace
     EA.Script.Oracle
