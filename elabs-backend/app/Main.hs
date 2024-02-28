@@ -321,6 +321,7 @@ app opts@(Options {..}) = do
           printf "Operator pubkeyHash: %s \n Operator Address: %s" operatorPubkeyHash addr
           printf "Oracle NFT Asset: %s" orcAssetClass
           printf "Oracle Address: %s" orcAddress
+          printf "Utxo is used to create NFT: %s" oref
 
 initEAApp :: GYCoreConfig -> GYProviders -> Options -> ServerOptions -> IO EAAppEnv
 initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
