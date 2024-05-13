@@ -207,3 +207,37 @@ executable integration-test
   build-depends:
     , elabs-backend
     , elabs-backend-testlib
+
+
+executable cli
+  import:         lang, deps, opts
+  hs-source-dirs: cli
+  main-is:        app/Cli.hs
+  build-depends:
+    , elabs-backend
+    , optparse-applicative
+
+  other-modules:
+    -- Root Cli parsers & runners
+    EA.CLI.Parser
+    EA.CLI.Run
+
+    -- Auth related Cli command, parsers & runners
+    EA.CLI.Auth.Command
+    EA.CLI.Auth.Parser
+    EA.CLI.Auth.Run
+
+    -- Wallet related Cli command, parsers & runners
+    EA.CLI.Wallet.Command
+    EA.CLI.Wallet.Parser
+    EA.CLI.Wallet.Run
+
+    -- Marketplace related Cli command, parsers & runners
+    EA.CLI.Marketplace.Command
+    EA.CLI.Marketplace.Parser
+    EA.CLI.Marketplace.Run
+
+    -- Oracle related Cli command, parsers & runners
+    EA.CLI.Oracle.Command
+    EA.CLI.Oracle.Parser
+    EA.CLI.Oracle.Run
