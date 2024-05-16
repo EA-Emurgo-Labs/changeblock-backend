@@ -1,32 +1,22 @@
 module Main (main) where
 
 import Cardano.Mnemonic (MkSomeMnemonic (mkSomeMnemonic))
-import Configuration.Dotenv (defaultConfig, loadFile)
 import Control.Exception (try)
-import Control.Monad.Logger (
-  LoggingT (runLoggingT),
-  fromLogStr,
- )
-import Control.Monad.Metrics qualified as Metrics
 import Crypto.Hash.SHA256 (hash)
 import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.ByteString.Char8 qualified as BS
 import Data.ByteString.Lazy.Char8 qualified as BL8
-import Data.List qualified as List
+import Data.String.Conversions (cs)
 import Data.Text qualified as T
-import Database.Persist.Postgresql (createPostgresqlPool)
 import Database.Persist.Sql (runSqlPool)
-import EA (EAAppEnv (..), eaLiftMaybe, eaSubmitTx, runEAApp)
+import EA (EAAppEnv (..), eaLiftMaybe, eaSubmitTx, initEAApp, runEAApp)
 import EA.Api (apiSwagger)
 import EA.ErrorMiddleware (apiErrorToServerError, exceptionHandler)
-import EA.Internal (fromLogLevel)
 import EA.Routes (appRoutes, routes)
-import EA.Script (Scripts (..), nftMintingPolicy, oracleValidator)
+import EA.Script (nftMintingPolicy, oracleValidator)
 import EA.Script.Marketplace (MarketplaceParams (..))
-import EA.Script.Oracle (oracleNftAsset, utxoToOracleInfo)
 import EA.Tx.Changeblock.Marketplace (deployScript)
 import EA.Tx.Changeblock.Oracle (createOracle)
-import           Data.String.Conversions                    (cs)
 
 import EA.Wallet (
   eaGetCollateralFromInternalWallet,
@@ -34,24 +24,20 @@ import EA.Wallet (
   eaSelectOref,
  )
 import GeniusYield.GYConfig (
-  GYCoreConfig (cfgNetworkId),
   coreConfigIO,
   withCfgProviders,
  )
 import GeniusYield.Imports (printf)
-import GeniusYield.TxBuilder (addressToPubKeyHashIO, runGYTxMonadNode)
+import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types
 import Internal.Wallet (
   genRootKeyFromMnemonic,
-  readRootKey,
   writeRootKey,
  )
 import Internal.Wallet qualified as Wallet
 import Internal.Wallet.DB.Sql (
   addToken,
-  createAccount,
   listTokens,
-  runAutoMigration,
  )
 import Network.HTTP.Types qualified as HttpTypes
 import Network.Wai.Handler.Warp (run)
@@ -80,10 +66,7 @@ import Options.Applicative (
   switch,
   value,
  )
-import Ply (readTypedScript)
-import Relude.Unsafe qualified as Unsafe
 import Servant
-import System.Environment (getEnv)
 
 --------------------------------------------------------------------------------
 
@@ -267,15 +250,15 @@ main = app =<< execParser opts
         )
 
 app :: Options -> IO ()
-app opts@(Options {..}) = do
+app (Options {..}) = do
   conf <- coreConfigIO optionsCoreConfigFile
 
   withCfgProviders conf "app" $
     \providers -> do
       case optionsCommand of
-        RunServer srvopts@(ServerOptions {..}) ->
+        RunServer (ServerOptions {..}) ->
           do
-            env <- initEAApp conf providers opts srvopts
+            env <- initEAApp conf providers optionsRootKeyFile serverOptionsDBPoolSize
             gyLogInfo providers "app" $
               "Starting server at "
                 <> "http://localhost:"
@@ -294,23 +277,23 @@ app opts@(Options {..}) = do
           writeRootKey optionsRootKeyFile $ genRootKeyFromMnemonic mw
         PrintInternalAddresses (InternalAddressesOptions {..}) -> do
           env <-
-            initEAApp conf providers opts internalAddressesServerOptions
+            initEAApp conf providers optionsRootKeyFile (serverOptionsDBPoolSize internalAddressesServerOptions)
           addrs <-
             runEAApp env $ eaGetInternalAddresses internalAddressesCollateral
           putTextLn . show $ fst <$> addrs
         PrintAuthTokens srvOpts -> do
-          env <- initEAApp conf providers opts srvOpts
+          env <- initEAApp conf providers optionsRootKeyFile (serverOptionsDBPoolSize srvOpts)
           pool <- runEAApp env $ asks eaAppEnvSqlPool
           tokens <- runSqlPool listTokens pool
           putTextLn $ show tokens
         AddAuthTokens (AuthTokenOptions {..}) -> do
-          env <- initEAApp conf providers opts authtokenOptionsServerOptions
+          env <- initEAApp conf providers optionsRootKeyFile (serverOptionsDBPoolSize authtokenOptionsServerOptions)
           pool <- runEAApp env $ asks eaAppEnvSqlPool
           runSqlPool
             (addToken (decodeUtf8 $ hash $ BS.pack authtokenOptionsToken) (T.pack authtokenOptionsNotes))
             pool
         CreateOracle (CreateOracleOptions {..}) -> do
-          env <- initEAApp conf providers opts createOracleServerOptions
+          env <- initEAApp conf providers optionsRootKeyFile $ serverOptionsDBPoolSize createOracleServerOptions
           internalAddrPairs <- runEAApp env $ eaGetInternalAddresses False
 
           -- Get the collateral address and its signing key.
@@ -342,7 +325,7 @@ app opts@(Options {..}) = do
           printf "\n \n export ORACLE_UTXO_REF=%s#0 \n" gyTxId
         DeployScript (DeployMarketplaceScriptOptions {..}) -> do
           printf "Deploying Marketplace Script to Address: %s" dplMktplaceAddress
-          env <- initEAApp conf providers opts dplMktplaceServerOptions
+          env <- initEAApp conf providers optionsRootKeyFile $ serverOptionsDBPoolSize dplMktplaceServerOptions
           internalAddrPairs <- runEAApp env $ eaGetInternalAddresses False
           oracleNftPolicyId <- runEAApp env $ asks eaAppEnvOracleNftMintingPolicyId >>= eaLiftMaybe "No Oracle NFT Policy Id"
           oracleNftTknName <- runEAApp env $ asks eaAppEnvOracleNftTokenName >>= eaLiftMaybe "No Oracle NFT Token Name"
@@ -378,105 +361,6 @@ app opts@(Options {..}) = do
 
           printf "\n \n export MARKETPLACE_REF_SCRIPT_UTXO=%s#0 \n" gyTxId
 
-initEAApp :: GYCoreConfig -> GYProviders -> Options -> ServerOptions -> IO EAAppEnv
-initEAApp conf providers (Options {..}) (ServerOptions {..}) = do
-  -- read .env in the environment
-  loadFile defaultConfig
-
-  carbonTokenTypedScript <- readTypedScript "contracts/carbon-token.json"
-  carbonNftTypedScript <- readTypedScript "contracts/carbon-nft.json"
-  marketplaceTypedScript <- readTypedScript "contracts/marketplace.json"
-  oracleTypedScript <- readTypedScript "contracts/oracle.json"
-  mintingNftTypedScript <- readTypedScript "contracts/nft.json"
-
-  let scripts =
-        Scripts
-          { scriptCarbonNftPolicy = carbonNftTypedScript
-          , scriptCarbonTokenPolicy = carbonTokenTypedScript
-          , scriptMintingNftPolicy = mintingNftTypedScript
-          , scriptMarketplaceValidator = marketplaceTypedScript
-          , scriptOracleValidator = oracleTypedScript
-          }
-
-  metrics <- Metrics.initialize
-
-  -- Create db connection pool and run migrations
-  con <- getEnv "DB_CONNECTION"
-  pool <-
-    runLoggingT
-      ( createPostgresqlPool
-          (fromString con)
-          serverOptionsDBPoolSize
-      )
-      $ \_ _ lvl msg ->
-        gyLog
-          providers
-          "db"
-          (fromLogLevel lvl)
-          (decodeUtf8 $ fromLogStr msg)
-
-  -- migrate and Create Account tables
-  void $ runSqlPool (runAutoMigration >> createAccount) pool
-
-  rootKey <- Unsafe.fromJust <$> readRootKey optionsRootKeyFile
-
-  bfIpfsToken <- getEnv "BLOCKFROST_IPFS"
-
-  -- Get Oracle Info for reference input
-  oracleRefInputUtxo <-
-    lookupEnv "ORACLE_UTXO_REF"
-      >>= maybe (pure []) (gyQueryUtxosAtTxOutRefsWithDatums providers . List.singleton . fromString)
-      >>= maybe (pure Nothing) (return . rightToMaybe . utxoToOracleInfo) . listToMaybe
-
-  (oracleNftPolicyId, oracleNftTokenName) <-
-    maybe
-      (return (Nothing, Nothing))
-      (return . oracleNftPolicyIdAndTokenName . oracleNftAsset)
-      oracleRefInputUtxo
-
-  -- Oracle Operator and Escrow PubkeyHash
-  operatorPubkeyHash <- addressToPubKeyHashIO $ oracleOperatorAddress (cfgNetworkId conf)
-  escrowPubkeyHash <- addressToPubKeyHashIO $ escrowAddress (cfgNetworkId conf)
-  backdoorPubkeyHash <- backdoorPubkeyHashIO $ cfgNetworkId conf
-
-  -- Get Marketplace Utxo for reference script
-  marketplaceRefScriptUtxo <-
-    lookupEnv "MARKETPLACE_REF_SCRIPT_UTXO"
-      >>= maybe (return Nothing) (gyQueryUtxoAtTxOutRef providers . fromString)
-
-  return $
-    EAAppEnv
-      { eaAppEnvGYProviders = providers
-      , eaAppEnvGYNetworkId = cfgNetworkId conf
-      , eaAppEnvMetrics = metrics
-      , eaAppEnvScripts = scripts
-      , eaAppEnvSqlPool = pool
-      , eaAppEnvRootKey = rootKey
-      , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
-      , eaAppEnvOracleRefInputUtxo = oracleRefInputUtxo
-      , eaAppEnvMarketplaceRefScriptUtxo = utxoRef <$> marketplaceRefScriptUtxo
-      , eaAppEnvMarketplaceBackdoorPubKeyHash = backdoorPubkeyHash
-      , eaAppEnvOracleOperatorPubKeyHash = operatorPubkeyHash
-      , eaAppEnvOracleNftMintingPolicyId = oracleNftPolicyId
-      , eaAppEnvOracleNftTokenName = oracleNftTokenName
-      , eaAppEnvMarketplaceEscrowPubKeyHash = escrowPubkeyHash
-      , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "76302e302e33" -- v0.0.3
-      }
-  where
-    oracleNftPolicyIdAndTokenName :: Maybe GYAssetClass -> (Maybe GYMintingPolicyId, Maybe GYTokenName)
-    oracleNftPolicyIdAndTokenName (Just (GYToken policyId tokename)) = (Just policyId, Just tokename)
-    oracleNftPolicyIdAndTokenName _ = (Nothing, Nothing)
-
-    -- TODO: Use valid Escrow,  oracle Operator  address & backdoor
-    escrowAddress :: GYNetworkId -> GYAddress
-    escrowAddress _ = unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
-
-    oracleOperatorAddress :: GYNetworkId -> GYAddress
-    oracleOperatorAddress _ = unsafeAddressFromText "addr_test1qruxukp4fdncrcnxds6ze2afcufs8w4a6m02a0u7yucppwfx23xw3uj9gkatk450ac7hec80ujfyvk3c97f7n8eljjrq74zl3e"
-
-    backdoorPubkeyHashIO :: GYNetworkId -> IO GYPubKeyHash
-    backdoorPubkeyHashIO = addressToPubKeyHashIO . escrowAddress
-
 newtype ReadError = ReadError String
   deriving stock (Show)
   deriving anyclass (Exception)
@@ -484,7 +368,6 @@ newtype ReadError = ReadError String
 context :: Context '[ErrorFormatter]
 context = errorFormatter :. EmptyContext
   where
-
     errorFormatter :: ErrorFormatter
     errorFormatter _ _ err = err400 {errBody = cs err}
 

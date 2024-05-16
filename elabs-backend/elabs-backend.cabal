@@ -218,6 +218,7 @@ executable cli
     , optparse-applicative
 
   other-modules:
+    EA.CLI.Helper
     -- Root Cli parsers & runners
     EA.CLI.Parser
     EA.CLI.Run

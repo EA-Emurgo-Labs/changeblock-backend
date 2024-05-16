@@ -13,6 +13,7 @@ module EA (
   eaLiftMaybe,
   eaLiftEither,
   eaLiftEither',
+  eaLiftEitherIO,
   eaSubmitTx,
   eaGetAdaOnlyUTxO,
   eaGetCollateral,
@@ -25,29 +26,42 @@ module EA (
   eaLiftEitherServerError,
   eaLiftEitherApiError,
   eaLiftEitherApiError',
+  initEAApp,
 )
 where
 
-import Control.Exception (ErrorCall (ErrorCall), catch, throwIO)
+import Configuration.Dotenv (defaultConfig, loadFile)
+import Control.Exception (ErrorCall (ErrorCall), catch)
 import Control.Monad.Metrics (Metrics, MonadMetrics (getMetrics))
+import Control.Monad.Metrics qualified as Metrics
 import Data.ByteString.Lazy qualified as LB
 import Data.Foldable (minimumBy)
+import Data.List qualified as List
 import Data.Pool (Pool)
-import Database.Persist.Sql (SqlBackend)
+import Database.Persist.Sql (SqlBackend, runSqlPool)
 import EA.Script (Scripts (..), marketplaceValidator)
+
+import Control.Monad.Logger (LoggingT (runLoggingT), fromLogStr)
+import Database.Persist.Postgresql (createPostgresqlPool)
+import EA.Internal (fromLogLevel)
 import EA.Script.Marketplace (
   MarketplaceDatum,
   MarketplaceInfo,
   MarketplaceParams,
   marketplaceDatumToInfo,
  )
-import EA.Script.Oracle (OracleInfo)
+import EA.Script.Oracle (OracleInfo, oracleNftAsset, utxoToOracleInfo)
+import GeniusYield.GYConfig (GYCoreConfig (cfgNetworkId))
 import GeniusYield.HTTP.Errors (IsGYApiError)
-import GeniusYield.TxBuilder (GYTxMonadException, MonadError (catchError, throwError), adaOnlyUTxOPure, throwAppError, utxoDatumPure)
+import GeniusYield.TxBuilder (GYTxMonadException, MonadError (catchError, throwError), adaOnlyUTxOPure, addressToPubKeyHashIO, throwAppError, utxoDatumPure)
 import GeniusYield.Types
-import Internal.Wallet (RootKey)
+import Internal.Wallet (RootKey, readRootKey)
+import Internal.Wallet.DB.Sql (createAccount, runAutoMigration)
+import Ply (readTypedScript)
+import Relude.Unsafe qualified as Unsafe
 import Servant (ServerError (errBody), err400)
-import UnliftIO (MonadUnliftIO (withRunInIO))
+import System.Directory.Internal.Prelude (getEnv)
+import UnliftIO (MonadUnliftIO (withRunInIO), throwIO)
 
 --------------------------------------------------------------------------------
 
@@ -132,6 +146,9 @@ eaLiftMaybe' _ (Just x) = return x
 
 eaLiftEither :: (a -> String) -> Either a b -> EAApp b
 eaLiftEither f = either (eaThrow . ErrorCall . f) return
+
+eaLiftEitherIO :: (a -> String) -> Either a b -> IO b
+eaLiftEitherIO f = either (fail . f) return
 
 eaLiftEither' :: (Exception e) => (a -> e) -> Either a b -> EAApp b
 eaLiftEither' f = either (eaThrow . f) return
@@ -256,3 +273,112 @@ eaMarketplaceInfos mktPlaceParams = do
         either (Left . show) Right $
           utxoDatumPure @MarketplaceDatum t
       marketplaceDatumToInfo (utxoRef utxo) value addr datum
+
+-- | Initialize EAApp environment
+initEAApp ::
+  -- | The Core Config
+  GYCoreConfig ->
+  -- | The providers
+  GYProviders ->
+  -- | The root key path
+  FilePath ->
+  -- | The DB Pool Size
+  Int ->
+  IO EAAppEnv
+initEAApp conf providers rootKeyPath dbPoolSize = do
+  -- read .env in the environment
+  loadFile defaultConfig
+
+  carbonTokenTypedScript <- readTypedScript "contracts/carbon-token.json"
+  carbonNftTypedScript <- readTypedScript "contracts/carbon-nft.json"
+  marketplaceTypedScript <- readTypedScript "contracts/marketplace.json"
+  oracleTypedScript <- readTypedScript "contracts/oracle.json"
+  mintingNftTypedScript <- readTypedScript "contracts/nft.json"
+
+  let scripts =
+        Scripts
+          { scriptCarbonNftPolicy = carbonNftTypedScript
+          , scriptCarbonTokenPolicy = carbonTokenTypedScript
+          , scriptMintingNftPolicy = mintingNftTypedScript
+          , scriptMarketplaceValidator = marketplaceTypedScript
+          , scriptOracleValidator = oracleTypedScript
+          }
+
+  metrics <- Metrics.initialize
+
+  -- Create db connection pool and run migrations
+  con <- getEnv "DB_CONNECTION"
+  pool <-
+    runLoggingT
+      ( createPostgresqlPool
+          (fromString con)
+          dbPoolSize
+      )
+      $ \_ _ lvl msg ->
+        gyLog
+          providers
+          "db"
+          (fromLogLevel lvl)
+          (decodeUtf8 $ fromLogStr msg)
+
+  -- migrate and Create Account tables
+  void $ runSqlPool (runAutoMigration >> createAccount) pool
+
+  rootKey <- Unsafe.fromJust <$> readRootKey rootKeyPath
+
+  bfIpfsToken <- getEnv "BLOCKFROST_IPFS"
+
+  -- Get Oracle Info for reference input
+  oracleRefInputUtxo <-
+    lookupEnv "ORACLE_UTXO_REF"
+      >>= maybe (pure []) (gyQueryUtxosAtTxOutRefsWithDatums providers . List.singleton . fromString)
+      >>= maybe (pure Nothing) (return . rightToMaybe . utxoToOracleInfo) . listToMaybe
+
+  (oracleNftPolicyId, oracleNftTokenName) <-
+    maybe
+      (return (Nothing, Nothing))
+      (return . oracleNftPolicyIdAndTokenName . oracleNftAsset)
+      oracleRefInputUtxo
+
+  -- Oracle Operator and Escrow PubkeyHash
+  operatorPubkeyHash <- addressToPubKeyHashIO $ oracleOperatorAddress (cfgNetworkId conf)
+  escrowPubkeyHash <- addressToPubKeyHashIO $ escrowAddress (cfgNetworkId conf)
+  backdoorPubkeyHash <- backdoorPubkeyHashIO $ cfgNetworkId conf
+
+  -- Get Marketplace Utxo for reference script
+  marketplaceRefScriptUtxo <-
+    lookupEnv "MARKETPLACE_REF_SCRIPT_UTXO"
+      >>= maybe (return Nothing) (gyQueryUtxoAtTxOutRef providers . fromString)
+
+  return $
+    EAAppEnv
+      { eaAppEnvGYProviders = providers
+      , eaAppEnvGYNetworkId = cfgNetworkId conf
+      , eaAppEnvMetrics = metrics
+      , eaAppEnvScripts = scripts
+      , eaAppEnvSqlPool = pool
+      , eaAppEnvRootKey = rootKey
+      , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
+      , eaAppEnvOracleRefInputUtxo = oracleRefInputUtxo
+      , eaAppEnvMarketplaceRefScriptUtxo = utxoRef <$> marketplaceRefScriptUtxo
+      , eaAppEnvMarketplaceBackdoorPubKeyHash = backdoorPubkeyHash
+      , eaAppEnvOracleOperatorPubKeyHash = operatorPubkeyHash
+      , eaAppEnvOracleNftMintingPolicyId = oracleNftPolicyId
+      , eaAppEnvOracleNftTokenName = oracleNftTokenName
+      , eaAppEnvMarketplaceEscrowPubKeyHash = escrowPubkeyHash
+      , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "76302e302e33" -- v0.0.3
+      }
+  where
+    oracleNftPolicyIdAndTokenName :: Maybe GYAssetClass -> (Maybe GYMintingPolicyId, Maybe GYTokenName)
+    oracleNftPolicyIdAndTokenName (Just (GYToken policyId tokename)) = (Just policyId, Just tokename)
+    oracleNftPolicyIdAndTokenName _ = (Nothing, Nothing)
+
+    -- TODO: Use valid Escrow,  oracle Operator  address & backdoor
+    escrowAddress :: GYNetworkId -> GYAddress
+    escrowAddress _ = unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
+
+    oracleOperatorAddress :: GYNetworkId -> GYAddress
+    oracleOperatorAddress _ = unsafeAddressFromText "addr_test1qruxukp4fdncrcnxds6ze2afcufs8w4a6m02a0u7yucppwfx23xw3uj9gkatk450ac7hec80ujfyvk3c97f7n8eljjrq74zl3e"
+
+    backdoorPubkeyHashIO :: GYNetworkId -> IO GYPubKeyHash
+    backdoorPubkeyHashIO = addressToPubKeyHashIO . escrowAddress
