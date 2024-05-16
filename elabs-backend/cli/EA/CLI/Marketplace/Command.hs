@@ -3,9 +3,11 @@ module EA.CLI.Marketplace.Command (
   MarketplaceDeployCommand (..),
 ) where
 
+import Data.Text qualified as T
+
 data MarketplaceCommand
   = MarketplaceDeployScript MarketplaceDeployCommand
 
 data MarketplaceDeployCommand = MarketplaceDeployCommand
-  { mktDplRefScriptAddr :: !String
+  { mktDplRefScriptAddr :: !T.Text
   }

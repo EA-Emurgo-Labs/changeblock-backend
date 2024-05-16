@@ -33,6 +33,6 @@ pMarketplaceDeployCommand =
   MarketplaceDeployCommand
     <$> strOption
       ( long "address"
-          <> metavar "STRING"
+          <> metavar "ADDRESS"
           <> help "Address to send Marketplace Reference Script utxo"
       )
