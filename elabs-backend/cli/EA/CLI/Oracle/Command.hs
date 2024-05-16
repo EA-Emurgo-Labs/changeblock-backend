@@ -3,10 +3,12 @@ module EA.CLI.Oracle.Command (
   OracleCreateCommand (..),
 ) where
 
+import Data.Text qualified as T
+
 data OracleCommand
   = CreateOracle OracleCreateCommand
 
 data OracleCreateCommand = OracleCreateCommand
   { orcCreateRate :: !Natural
-  , orcCreateAssetName :: !String
+  , orcCreateAssetName :: !T.Text
   }
