@@ -16,8 +16,10 @@ import Options.Applicative (
   long,
   metavar,
   progDesc,
+  showDefault,
   strOption,
   switch,
+  value,
  )
 
 parseWalletCommand :: Parser WalletCommand
@@ -46,4 +48,11 @@ pWalletGenRootKeyCommand =
       ( long "mnemonic"
           <> metavar "MNEMONIC"
           <> help "Mnemonic for root key generation (24 words)"
+      )
+    <*> strOption
+      ( long "path"
+          <> metavar "PATH"
+          <> help "Path to write root key"
+          <> showDefault
+          <> value "root.key"
       )

@@ -14,4 +14,5 @@ data WalletInternalAddressCommand = WalletInternalAddressCommand
 
 data WalletGenRootKeyCommand = WalletGenRootKeyCommand
   { wltGenRootKeyMnemonic :: !String
+  , wltRootKeyPath :: !String
   }
