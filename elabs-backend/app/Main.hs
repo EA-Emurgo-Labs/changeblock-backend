@@ -338,7 +338,8 @@ app (Options {..}) = do
           -- Get the collateral address and its signing key.
           (collateral, colKey) <- runEAApp env $ eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
 
-          (addr, key, _oref) <- runEAApp env $ eaSelectOref internalAddrPairs (\r -> collateral /= Just (r, True)) >>= eaLiftMaybe "No UTxO found"
+          (addr, key, oref) <- runEAApp env $ eaSelectOref internalAddrPairs (\r -> collateral /= Just (r, True)) >>= eaLiftMaybe "No UTxO found"
+          putStrLn $ "\n UTXO: " <> show oref <> "\n"
 
           let scripts = eaAppEnvScripts env
               oracleValidatorHash = validatorHash $ oracleValidator (GYToken oracleNftPolicyId oracleNftTknName) (eaAppEnvOracleOperatorPubKeyHash env) scripts
@@ -356,6 +357,9 @@ app (Options {..}) = do
           txBody <-
             liftIO $
               runGYTxMonadNode networkId providers [addr] addr collateral (return skeleton)
+
+          putStrLn "TXBody \n"
+          print txBody
 
           gyTxId <- runEAApp env $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
 

@@ -56,10 +56,10 @@ run:
 	cabal run elabs-backend:app -j$(THREADS) -- run
 
 show-internal-address:
-	cabal run elabs-backend:app -- internaladdresses
+	cabal run elabs-backend:cli -- wallet internal-address
 
 show-internal-collateral-address:
-	cabal run elabs-backend:app -- internaladdresses --collateral
+	cabal run elabs-backend:cli -- wallet internal-address --collateral
 
 create-oracle:
 	cabal run elabs-backend:app -- createOracle --rate 500000

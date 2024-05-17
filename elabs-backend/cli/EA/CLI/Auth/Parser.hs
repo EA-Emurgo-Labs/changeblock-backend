@@ -40,8 +40,8 @@ pCreateAuthTokenCommand :: Parser CreateAuthTokenCommand
 pCreateAuthTokenCommand =
   CreateAuthTokenCommand
     <$> strOption
-      ( long "value"
-          <> metavar "STRING"
+      ( long "token"
+          <> metavar "TOKEN VALUE"
           <> help "Value of the token"
       )
     <*> strOption
@@ -54,7 +54,7 @@ pCheckAuthTokenCommand :: Parser CheckAuthTokenCommand
 pCheckAuthTokenCommand =
   CheckAuthTokenCommand
     <$> strOption
-      ( long "value"
-          <> metavar "STRING"
+      ( long "token"
+          <> metavar "TOKEN VALUE"
           <> help "Value of the token To check"
       )
