@@ -18,6 +18,8 @@ module EA (
   eaGetCollateral,
   eaGetCollateral',
   eaGetAddressValue,
+  eaGetAddressValue',
+  eaMarketplaceAddress,
   eaMarketplaceAtTxOutRef,
   eaMarketplaceInfos,
   eaLiftMaybeServerError,
@@ -32,13 +34,15 @@ import Control.Exception (ErrorCall (ErrorCall), catch, throwIO)
 import Control.Monad.Metrics (Metrics, MonadMetrics (getMetrics))
 import Data.ByteString.Lazy qualified as LB
 import Data.Foldable (minimumBy)
+import Data.List qualified as List
 import Data.Pool (Pool)
 import Database.Persist.Sql (SqlBackend)
-import EA.Script (Scripts (..), marketplaceValidator)
+import EA.Api.Order.Exception (OrderApiException (OrderNoOraclePolicyId, OrderNoOracleToken, OrderNoOracleUtxo))
+import EA.Script (Scripts (..), marketplaceValidator, oracleValidator)
 import EA.Script.Marketplace (
   MarketplaceDatum,
   MarketplaceInfo,
-  MarketplaceParams,
+  MarketplaceParams (..),
   marketplaceDatumToInfo,
  )
 import EA.Script.Oracle (OracleInfo)
@@ -204,6 +208,15 @@ eaGetAddressValue addrs = do
   utxos <- liftIO $ utxosAtAddresses addrs
   return $ foldlUTxOs' (\acc utxo -> acc <> utxoValue utxo) (valueFromList []) utxos
 
+eaGetAddressValue' :: [GYAddress] -> ((GYUTxO, Maybe GYDatum) -> GYValue) -> EAApp GYValue
+eaGetAddressValue' addrs f = do
+  utxosAtAddresses <-
+    asks
+      (gyQueryUtxosAtAddressesWithDatums . eaAppEnvGYProviders)
+
+  utxos <- liftIO $ utxosAtAddresses addrs
+  return $ List.foldl (\acc utxo -> acc <> f utxo) (valueFromList []) utxos
+
 eaGetCollateral ::
   GYAddress ->
   Natural ->
@@ -258,3 +271,38 @@ eaMarketplaceInfos mktPlaceParams = do
         either (Left . show) Right $
           utxoDatumPure @MarketplaceDatum t
       marketplaceDatumToInfo (utxoRef utxo) value addr datum adaPrice
+
+eaMarketplaceAddress :: EAApp GYAddress
+eaMarketplaceAddress = do
+  nid <- asks eaAppEnvGYNetworkId
+  scripts <- asks eaAppEnvScripts
+
+  oracleInfo <-
+    asks eaAppEnvOracleRefInputUtxo
+      >>= eaLiftMaybeApiError OrderNoOracleUtxo
+
+  oracleNftPolicyId <-
+    asks eaAppEnvOracleNftMintingPolicyId
+      >>= eaLiftMaybeApiError (OrderNoOraclePolicyId oracleInfo)
+
+  oracleNftTknName <-
+    asks eaAppEnvOracleNftTokenName
+      >>= eaLiftMaybeApiError (OrderNoOracleToken oracleInfo)
+
+  oracleOperatorPubKeyHash <- asks eaAppEnvOracleOperatorPubKeyHash
+  escrowPubkeyHash <- asks eaAppEnvMarketplaceEscrowPubKeyHash
+  version <- asks eaAppEnvMarketplaceVersion
+  markertplaceBackdoor <- asks eaAppEnvMarketplaceBackdoorPubKeyHash
+
+  let oracleNftAssetClass = GYToken oracleNftPolicyId oracleNftTknName
+      oracleValidatorHash = validatorHash $ oracleValidator oracleNftAssetClass oracleOperatorPubKeyHash scripts
+      marketplaceParams =
+        MarketplaceParams
+          { mktPrmOracleValidator = oracleValidatorHash
+          , mktPrmEscrowValidator = escrowPubkeyHash
+          , mktPrmVersion = version
+          , mktPrmOracleSymbol = oracleNftPolicyId
+          , mktPrmOracleTokenName = oracleNftTknName
+          , mktPrmBackdoor = markertplaceBackdoor
+          }
+  return $ addressFromValidator nid $ marketplaceValidator marketplaceParams scripts
