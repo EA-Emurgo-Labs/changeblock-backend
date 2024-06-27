@@ -16,7 +16,8 @@ To view normal interal address we can run following command and send Some ADA to
 ## 2. Create Oracle
 To create oracle we need to run   
 ```
-  cabal run elabs-backend:app -- createOracle --rate <some_rate_in_lovelace>
+  cabal run elabs-backend:cli -- oracle create --rate <rate_in_lovelace>
+
 ```
 
 We need to export variable displayed in output of terminal once createOracle script is completed.
@@ -24,6 +25,6 @@ We need to export variable displayed in output of terminal once createOracle scr
 ## 3. Deploy Marketplace Script
 we can simply run following command to deploy Marketplace script.
 ```
-  cabal run elabs-backend:app -- deployScript
+  cabal run elabs-backend:cli -- marketplace deploy --address <Address-to-send-ref-script>
 ```
 Like Oracle we need to export variable displayed in output of terminal after script is completed.

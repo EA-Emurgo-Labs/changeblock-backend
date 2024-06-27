@@ -8,7 +8,8 @@ To create a root key, it's best to create a new wallet with your favorite Cardan
 
 This command will create the `root.key`
 ```
-cabal run labs-backend:app -- genrootkey --mnemonic "brand scatter almost cattle reward guilt one sound embrace payment want brand april kiwi major novel orchard innocent interest sense alley deny main fit"
+
+ cabal run elabs-backend:cli -- wallet gen-root-key --mnemonic "brand scatter almost cattle reward guilt one sound embrace payment want brand april kiwi major novel orchard innocent interest sense alley deny main fit"
 ```
 
 ## Secret Zero Problem

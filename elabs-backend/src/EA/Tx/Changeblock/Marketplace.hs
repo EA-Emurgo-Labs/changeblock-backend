@@ -273,5 +273,5 @@ adjustOrders nid info OracleInfo {..} mMarketplaceRefScript newPrice newAmount n
 deployScript :: GYAddress -> MarketplaceParams -> Scripts -> GYTxSkeleton 'PlutusV2
 deployScript toAddr marketplaceParams scripts =
   let mktValidator = marketplaceValidator marketplaceParams scripts
-      out = GYTxOut toAddr (valueFromLovelace 0) Nothing (Just $ validatorToScript mktValidator)
+      out = GYTxOut toAddr (valueFromLovelace 100) Nothing (Just $ validatorToScript mktValidator)
    in mustHaveOutput out

@@ -1,25 +1,30 @@
 module EA.Wallet (
   eaGetCollateral,
   eaGetInternalAddresses,
+  eaGetInternalAddressesIO,
   eaGetCollateralFromInternalWallet,
   eaGetAddresses,
+  eaGetAddresses',
   eaGetAddressFromPubkeyhash,
   eaSelectOref,
 )
 where
 
-import Database.Persist.Sql (runSqlPool)
+import Data.Pool (Pool)
+import Database.Persist.Sql (SqlBackend, runSqlPool)
 import EA (
   EAApp,
   EAAppEnv (..),
   eaAppEnvSqlPool,
   eaGetCollateral,
   eaLiftEither,
+  eaLiftEitherIO,
   eaLiftMaybe,
  )
 import EA.Api.Types (UserId)
 import GeniusYield.Types (
   GYAddress,
+  GYNetworkId,
   GYPubKeyHash,
   GYTxOutRef,
   GYUTxO (utxoRef),
@@ -28,7 +33,7 @@ import GeniusYield.Types (
   gyQueryUtxosAtAddresses,
   randomTxOutRef,
  )
-import Internal.Wallet (PaymentKey, deriveAddress)
+import Internal.Wallet (PaymentKey, RootKey, deriveAddress)
 import Internal.Wallet.DB.Sql (
   getInternalWalletIndexPairs',
   getWalletIndexPairs',
@@ -42,14 +47,16 @@ eaGetInternalAddresses :: Bool -> EAApp [(GYAddress, PaymentKey)]
 eaGetInternalAddresses collateral = do
   nid <- asks eaAppEnvGYNetworkId
   rootK <- asks eaAppEnvRootKey
+  pool <- asks eaAppEnvSqlPool
+  liftIO $ eaGetInternalAddressesIO collateral nid rootK pool
+
+eaGetInternalAddressesIO :: Bool -> GYNetworkId -> RootKey -> Pool SqlBackend -> IO [(GYAddress, PaymentKey)]
+eaGetInternalAddressesIO collateral nid rootK pool = do
   indexPairs <-
-    asks eaAppEnvSqlPool
-      >>= ( liftIO
-              . runSqlPool
-                (getInternalWalletIndexPairs' 1 collateral)
-          )
+    runSqlPool (getInternalWalletIndexPairs' 1 collateral) pool
+
   -- \^ Need to be 1 because how ChangeBlock smart contract v1 is implemented
-  eaLiftEither id $
+  eaLiftEitherIO id $
     mapM (uncurry $ deriveAddress nid rootK) indexPairs
 
 eaGetAddresses :: UserId -> EAApp [(GYAddress, PaymentKey)]
@@ -57,6 +64,10 @@ eaGetAddresses userId = do
   nid <- asks eaAppEnvGYNetworkId
   rootK <- asks eaAppEnvRootKey
   pool <- asks eaAppEnvSqlPool
+  eaGetAddresses' userId nid rootK pool
+
+eaGetAddresses' :: UserId -> GYNetworkId -> RootKey -> Pool SqlBackend -> EAApp [(GYAddress, PaymentKey)]
+eaGetAddresses' userId nid rootK pool = do
   indexPairs <-
     liftIO $ runSqlPool (getWalletIndexPairs' userId 1) pool
   -- \^ Need to be 1 because how ChangeBlock smart contract v1 is implemented
