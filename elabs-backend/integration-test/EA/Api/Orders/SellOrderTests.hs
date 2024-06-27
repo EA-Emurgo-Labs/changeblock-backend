@@ -20,7 +20,7 @@ tests :: IO EACtx -> TestTree
 tests eaCtx =
   testGroup
     "Order Buy Tests"
-    [ testCaseSteps "Test /api/v0/orders/create endpoint" $
+    [ testCaseSteps "Test /api/v0/orders/create_sell_order endpoint" $
         \step -> withEaCtx eaCtx $
           \EACtx {..} -> do
             (ownerAddr, _) <- runEAApp eaCtxEnv $ do
@@ -41,7 +41,7 @@ tests eaCtx =
             let jsonData = Aeson.encode $ OrderSellRequest ownerPubkeyHash 500 100 utxoRef
 
             -- Sending some fund to the buyer
-            step "Sending POST request to /api/v0/orders/create"
+            step "Sending POST request to /api/v0/orders/create_sell_order"
 
             resp <- flip runSession (server eaCtxEnv) $ do
               let token = encodeUtf8 eaCtxToken

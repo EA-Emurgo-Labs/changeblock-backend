@@ -155,6 +155,7 @@ library
     EA.Tx.Changeblock.MintIpfsNftCarbonToken
     EA.Tx.Changeblock.Oracle
     EA.Wallet
+    Internal.AdaPrice
     Internal.Ipfs
     Internal.Ipfs.Types
     Internal.Wallet

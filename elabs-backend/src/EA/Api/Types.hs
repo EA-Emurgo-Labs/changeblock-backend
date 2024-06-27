@@ -143,10 +143,19 @@ data WalletResponse = WalletResponse
 
 data WalletValueResp = WalletValueResp
   { value :: !GYValue
+  , adaPrice :: !(Maybe Double)
+  , totAdaValueUsd :: !(Maybe Double)
   }
   deriving stock (Show, Generic)
-  deriving anyclass (Aeson.FromJSON, Aeson.ToJSON, Swagger.ToSchema)
+  deriving anyclass (Aeson.FromJSON, Swagger.ToSchema)
 
+instance Aeson.ToJSON WalletValueResp where
+  toJSON WalletValueResp {..} =
+    Aeson.object
+      [ "value" Aeson..= value
+      , "ada_price_usd" Aeson..= adaPrice
+      , "tot_ada_value_usd" Aeson..= totAdaValueUsd
+      ]
 data WalletAddressWithPubKeyHash = WalletResponseWithPubKeyHash
   { address :: !GYAddressBech32
   , pubKeyHash :: !(Maybe GYPubKeyHash)

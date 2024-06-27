@@ -16,7 +16,6 @@ import EA (
 import EA.Api.Order.Types
 import EA.Api.Types (
   SubmitTxResponse,
-  UserId (UserId),
   txBodySubmitTxResponse,
  )
 import EA.Script (Scripts, oracleValidator)
@@ -41,7 +40,6 @@ import EA.Tx.Changeblock.Marketplace (
  )
 import EA.Wallet (
   eaGetAddressFromPubkeyhash,
-  eaGetAddresses,
   eaGetCollateralFromInternalWallet,
  )
 import GeniusYield.TxBuilder (GYTxSkeleton, runGYTxMonadNode)
@@ -65,6 +63,8 @@ import Servant.Swagger (HasSwagger (toSwagger))
 
 import EA.Api.Order.Exception (OrderApiException (..))
 import EA.CommonException (CommonException (..))
+
+import Data.Aeson qualified as Aeson
 
 --------------------------------------------------------------------------------
 
@@ -92,7 +92,7 @@ handleOrderApi =
 
 type OrderList =
   "orders"
-    :> QueryParam "ownerUserId" Natural
+    :> QueryParam "owner" String
     :> QueryParam "orderType" MarketplaceOrderType
     :> Get '[JSON] [MarketplaceInfo]
 
@@ -100,7 +100,7 @@ type OrderCreate =
   Description "This call allows owner to sell carbon tokens. It creates new sell order for provided amount and price."
     :> "orders"
     :> ReqBody '[JSON] OrderSellRequest
-    :> "create"
+    :> "create_sell_order"
     :> Post '[JSON] SubmitTxResponse
 
 type OrderBuy =
@@ -287,22 +287,15 @@ handleOrderUpdate OrderUpdateRequest {..} = withMarketplaceApiCtx $ \mCtx@Market
       when (updatedPrice == fromInteger mktInfoAmount) $ Left $ SameOrderPrice mInfo (toInteger updatedPrice)
       when (mktInfoIsSell /= M_SELL) $ Left $ NonSellOrderPriceUpdate mInfo
 
-handleListOrders :: Maybe Natural -> Maybe MarketplaceOrderType -> EAApp [MarketplaceInfo]
-handleListOrders ownerUserId orderType = withMarketplaceApiCtx $ \MarketplaceApiCtx {..} -> do
+handleListOrders :: Maybe String -> Maybe MarketplaceOrderType -> EAApp [MarketplaceInfo]
+handleListOrders mOwnerPubkeyHash orderType = withMarketplaceApiCtx $ \MarketplaceApiCtx {..} -> do
   mInfos <- asks eaMarketplaceInfos mktCtxParams
-  ownerPubkeys <- mOwnerPubKeyHashes
-  return $ filter (\m -> filterByOwner ownerPubkeys m && filterByType m) mInfos
+  return $ filter (\m -> filterByOwner m && filterByType m) mInfos
   where
-    mOwnerPubKeyHashes :: EAApp [GYPubKeyHash]
-    mOwnerPubKeyHashes = do
-      case ownerUserId of
-        Nothing -> return []
-        Just uid -> do
-          addrs <- eaGetAddresses $ UserId uid
-          return $ mapMaybe (addressToPubKeyHash . fst) addrs
-
-    filterByOwner :: [GYPubKeyHash] -> MarketplaceInfo -> Bool
-    filterByOwner pubkeyHashes MarketplaceInfo {..} = isNothing ownerUserId || mktInfoOwner `elem` pubkeyHashes
+    filterByOwner :: MarketplaceInfo -> Bool
+    filterByOwner MarketplaceInfo {..} =
+      let parsedPubKeyHash = maybe (Left "") (Aeson.eitherDecode . Aeson.encode) mOwnerPubkeyHash
+       in isNothing mOwnerPubkeyHash || parsedPubKeyHash == Right mktInfoOwner
 
     filterByType :: MarketplaceInfo -> Bool
     filterByType MarketplaceInfo {..} = maybe True (mktInfoIsSell ==) orderType

@@ -4,7 +4,7 @@ LABEL name=elabs-backend
 
 ARG CACHIX_AUTHTOKEN
 RUN echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
-RUN nix-env -iA cachix -f https://cachix.org/api/v1/install
+RUN nix-env -iA nixpkgs.cachix
 RUN cachix authtoken ${CACHIX_AUTHTOKEN}
 RUN cachix use ea-emurgo-labs
 

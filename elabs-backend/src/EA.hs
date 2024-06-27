@@ -19,6 +19,8 @@ module EA (
   eaGetCollateral,
   eaGetCollateral',
   eaGetAddressValue,
+  eaGetAddressValue',
+  eaMarketplaceAddress,
   eaMarketplaceAtTxOutRef,
   eaMarketplaceInfos,
   eaLiftMaybeServerError,
@@ -39,15 +41,16 @@ import Data.Foldable (minimumBy)
 import Data.List qualified as List
 import Data.Pool (Pool)
 import Database.Persist.Sql (SqlBackend, runSqlPool)
-import EA.Script (Scripts (..), marketplaceValidator)
 
 import Control.Monad.Logger (LoggingT (runLoggingT), fromLogStr)
 import Database.Persist.Postgresql (createPostgresqlPool)
+import EA.Api.Order.Exception (OrderApiException (OrderNoOraclePolicyId, OrderNoOracleToken, OrderNoOracleUtxo))
 import EA.Internal (fromLogLevel)
+import EA.Script (Scripts (..), marketplaceValidator, oracleValidator)
 import EA.Script.Marketplace (
   MarketplaceDatum,
   MarketplaceInfo,
-  MarketplaceParams,
+  MarketplaceParams (..),
   marketplaceDatumToInfo,
  )
 import EA.Script.Oracle (OracleInfo, oracleNftAsset, utxoToOracleInfo)
@@ -55,6 +58,7 @@ import GeniusYield.GYConfig (GYCoreConfig (cfgNetworkId))
 import GeniusYield.HTTP.Errors (IsGYApiError)
 import GeniusYield.TxBuilder (GYTxMonadException, MonadError (catchError, throwError), adaOnlyUTxOPure, addressToPubKeyHashIO, throwAppError, utxoDatumPure)
 import GeniusYield.Types
+import Internal.AdaPrice (getAdaPrice)
 import Internal.Wallet (RootKey, readRootKey)
 import Internal.Wallet.DB.Sql (createAccount, runAutoMigration)
 import Ply (readTypedScript)
@@ -220,6 +224,15 @@ eaGetAddressValue addrs = do
   utxos <- liftIO $ utxosAtAddresses addrs
   return $ foldlUTxOs' (\acc utxo -> acc <> utxoValue utxo) (valueFromList []) utxos
 
+eaGetAddressValue' :: [GYAddress] -> ((GYUTxO, Maybe GYDatum) -> GYValue) -> EAApp GYValue
+eaGetAddressValue' addrs f = do
+  utxosAtAddresses <-
+    asks
+      (gyQueryUtxosAtAddressesWithDatums . eaAppEnvGYProviders)
+
+  utxos <- liftIO $ utxosAtAddresses addrs
+  return $ List.foldl (\acc utxo -> acc <> f utxo) (valueFromList []) utxos
+
 eaGetCollateral ::
   GYAddress ->
   Natural ->
@@ -247,10 +260,11 @@ eaMarketplaceAtTxOutRef oref = do
       utxoDatumPure @MarketplaceDatum utxo
 
   eaLiftEither (const "Cannot create market place info") $
-    marketplaceDatumToInfo oref val addr datum
+    marketplaceDatumToInfo oref val addr datum Nothing
 
 eaMarketplaceInfos :: MarketplaceParams -> EAApp [MarketplaceInfo]
 eaMarketplaceInfos mktPlaceParams = do
+  adaPriceResp <- liftIO getAdaPrice
   providers <- asks eaAppEnvGYProviders
   nid <- asks eaAppEnvGYNetworkId
   scripts <- asks eaAppEnvScripts
@@ -265,14 +279,14 @@ eaMarketplaceInfos mktPlaceParams = do
   eaLiftEither (const "No marketplace infos found.") $
     sequence $
       filter isRight $
-        map utxoToMarketplaceInfo utxos
+        map (`utxoToMarketplaceInfo` adaPriceResp) utxos
   where
-    utxoToMarketplaceInfo :: (GYUTxO, Maybe GYDatum) -> Either String MarketplaceInfo
-    utxoToMarketplaceInfo t@(utxo, _) = do
+    utxoToMarketplaceInfo :: (GYUTxO, Maybe GYDatum) -> Maybe Double -> Either String MarketplaceInfo
+    utxoToMarketplaceInfo t@(utxo, _) adaPrice = do
       (addr, value, datum) <-
         either (Left . show) Right $
           utxoDatumPure @MarketplaceDatum t
-      marketplaceDatumToInfo (utxoRef utxo) value addr datum
+      marketplaceDatumToInfo (utxoRef utxo) value addr datum adaPrice
 
 -- | Initialize EAApp environment
 initEAApp ::
@@ -381,4 +395,41 @@ initEAApp conf providers rootKeyPath dbPoolSize = do
     oracleOperatorAddress _ = unsafeAddressFromText "addr_test1qruxukp4fdncrcnxds6ze2afcufs8w4a6m02a0u7yucppwfx23xw3uj9gkatk450ac7hec80ujfyvk3c97f7n8eljjrq74zl3e"
 
     backdoorPubkeyHashIO :: GYNetworkId -> IO GYPubKeyHash
-    backdoorPubkeyHashIO = addressToPubKeyHashIO . escrowAddress
+    backdoorPubkeyHashIO =
+      addressToPubKeyHashIO
+        . escrowAddress
+
+eaMarketplaceAddress :: EAApp GYAddress
+eaMarketplaceAddress = do
+  nid <- asks eaAppEnvGYNetworkId
+  scripts <- asks eaAppEnvScripts
+
+  oracleInfo <-
+    asks eaAppEnvOracleRefInputUtxo
+      >>= eaLiftMaybeApiError OrderNoOracleUtxo
+
+  oracleNftPolicyId <-
+    asks eaAppEnvOracleNftMintingPolicyId
+      >>= eaLiftMaybeApiError (OrderNoOraclePolicyId oracleInfo)
+
+  oracleNftTknName <-
+    asks eaAppEnvOracleNftTokenName
+      >>= eaLiftMaybeApiError (OrderNoOracleToken oracleInfo)
+
+  oracleOperatorPubKeyHash <- asks eaAppEnvOracleOperatorPubKeyHash
+  escrowPubkeyHash <- asks eaAppEnvMarketplaceEscrowPubKeyHash
+  version <- asks eaAppEnvMarketplaceVersion
+  markertplaceBackdoor <- asks eaAppEnvMarketplaceBackdoorPubKeyHash
+
+  let oracleNftAssetClass = GYToken oracleNftPolicyId oracleNftTknName
+      oracleValidatorHash = validatorHash $ oracleValidator oracleNftAssetClass oracleOperatorPubKeyHash scripts
+      marketplaceParams =
+        MarketplaceParams
+          { mktPrmOracleValidator = oracleValidatorHash
+          , mktPrmEscrowValidator = escrowPubkeyHash
+          , mktPrmVersion = version
+          , mktPrmOracleSymbol = oracleNftPolicyId
+          , mktPrmOracleTokenName = oracleNftTknName
+          , mktPrmBackdoor = markertplaceBackdoor
+          }
+  return $ addressFromValidator nid $ marketplaceValidator marketplaceParams scripts

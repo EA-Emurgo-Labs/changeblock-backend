@@ -32,15 +32,14 @@ import EA.Api.Types (
   SubmitTxResponse,
   txBodySubmitTxResponse,
  )
-import EA.CommonException (CommonException (EaCustomError, EaInvalidAddres, EaInvalidUserAddress, EaNoCollateral, EaNoInternalUtxo))
+import EA.CommonException (CommonException (EaCustomError, EaInvalidAddres, EaInvalidUserAddress, EaNoCollateral, EaNoUtxoForAddress))
 import EA.Orphans (MultipartFormDataTmp)
-import EA.Script (marketplaceValidator, oracleValidator)
+import EA.Script (carbonNftMintingPolicy, marketplaceValidator, oracleValidator)
 import EA.Script.Marketplace (MarketplaceParams (..))
 import EA.Tx.Changeblock.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken)
 import EA.Wallet (
   eaGetAddresses,
   eaGetCollateralFromInternalWallet,
-  eaGetInternalAddresses,
   eaSelectOref,
  )
 import GeniusYield.TxBuilder (
@@ -50,6 +49,7 @@ import GeniusYield.TxBuilder (
  )
 import GeniusYield.Types (
   GYAssetClass (GYToken),
+  mintingPolicyId,
   unsafeTokenNameFromHex,
   validatorHash,
  )
@@ -95,6 +95,7 @@ data CarbonMintResponse = CarbonMintResponse
   , ipfsName :: !Text
   , ipfsSize :: !Text
   , ipfsPinningState :: !Text
+  , carbonAsset :: !GYAssetClass
   , submitTxInfo :: !SubmitTxResponse
   }
   deriving stock (Show, Generic)
@@ -131,24 +132,21 @@ handleCarbonApi multipartData = do
   oracleAssetName <- asks eaAppEnvOracleNftTokenName >>= eaLiftMaybeApiError (OrderNoOracleToken oracleInfo)
   oraclePolicyId <- asks eaAppEnvOracleNftMintingPolicyId >>= eaLiftMaybeApiError (OrderNoOraclePolicyId oracleInfo)
 
-  -- Get the internal address pairs.
-  internalAddrPairs <- eaGetInternalAddresses False
-
   -- Get the user address. We don't need the signing key here.
-  (userAddr, _) <-
+  (userAddr, userPKey) <-
     eaLiftMaybeApiError (EaInvalidUserAddress $ userId request)
       . listToMaybe
       =<< eaGetAddresses (userId request)
 
+  (userAddr, userKey, userOref) <-
+    eaSelectOref
+      [(userAddr, userPKey)]
+      (const True)
+      >>= eaLiftMaybeApiError (EaNoUtxoForAddress userAddr)
+
   -- Get the collateral address and its signing key.
   (collateral, colKey) <-
     eaGetCollateralFromInternalWallet >>= eaLiftMaybeApiError EaNoCollateral
-
-  (addr, key, oref) <-
-    eaSelectOref
-      internalAddrPairs
-      (\r -> collateral /= Just (r, True))
-      >>= eaLiftMaybeApiError EaNoInternalUtxo
 
   -- TODO: Issuer should be Internal Wallet address ?
   issuer <- eaLiftMaybeApiError (EaInvalidAddres userAddr) (addressToPubKeyHash userAddr)
@@ -184,7 +182,7 @@ handleCarbonApi multipartData = do
 
     tx =
       mintIpfsNftCarbonToken
-        oref
+        userOref
         marketplaceAddress
         userAddr
         owner
@@ -194,11 +192,13 @@ handleCarbonApi multipartData = do
         (toInteger $ amount request)
         scripts
 
+    carbonNftAsset = GYToken (mintingPolicyId $ carbonNftMintingPolicy userOref tokenName scripts) tokenName
+
   txBody <-
     liftIO $
-      runGYTxMonadNode nid providers [addr] addr collateral (return tx)
+      runGYTxMonadNode nid providers [userAddr] userAddr collateral (return tx)
 
-  void $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
+  void $ eaSubmitTx $ Wallet.signTx txBody [userKey, colKey]
 
   return $
     CarbonMintResponse
@@ -206,4 +206,5 @@ handleCarbonApi multipartData = do
       ipfsAddResp.name
       ipfsAddResp.size
       ipfsPinObjResp.state
+      carbonNftAsset
       (txBodySubmitTxResponse txBody)
