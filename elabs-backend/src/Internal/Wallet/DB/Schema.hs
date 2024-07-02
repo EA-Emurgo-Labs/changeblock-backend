@@ -40,7 +40,7 @@ import Database.Persist.TH (
   sqlSettings,
  )
 import EA.Api.Types (UserId)
-import EA.Orphans (GYPubKeyHash)
+import EA.Orphans (GYPaymentKeyHash)
 
 share
   [mkPersist sqlSettings, mkMigrate "migrateAll"]
@@ -66,7 +66,7 @@ Wallet
 UserLookup
   user UserId
   UniqueUser user
-  pubkeyhash GYPubKeyHash
+  pubkeyhash GYPaymentKeyHash
   UniquePubkeyhash pubkeyhash
   created UTCTime default=CURRENT_TIMESTAMP
   deriving Show

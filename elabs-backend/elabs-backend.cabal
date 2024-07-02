@@ -156,6 +156,7 @@ library
     EA.Tx.Changeblock.Oracle
     EA.Wallet
     Internal.AdaPrice
+    Internal.Constants
     Internal.Ipfs
     Internal.Ipfs.Types
     Internal.Wallet

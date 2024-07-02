@@ -16,7 +16,7 @@ import GeniusYield.Types
 import Data.Text qualified as T
 
 data OrderSellRequest = OrderSellRequest
-  { owner :: !GYPubKeyHash
+  { owner :: !GYPaymentKeyHash
   -- ^ The pubkeyHash of The owner of the order.
   , sellReqAmount :: !Natural
   -- ^ The amount of carbon to mint.
@@ -61,7 +61,7 @@ instance Aeson.ToJSON OrderSellRequest where
 
 instance Swagger.ToSchema OrderSellRequest where
   declareNamedSchema _ = do
-    gypubkeyhashSchema <- Swagger.declareSchemaRef @GYPubKeyHash Proxy
+    gYPaymentKeyHashSchema <- Swagger.declareSchemaRef @GYPaymentKeyHash Proxy
     naturalSchema <- Swagger.declareSchemaRef @Natural Proxy
     gytxOutRefSchema <- Swagger.declareSchemaRef @GYTxOutRef Proxy
     return $
@@ -69,7 +69,7 @@ instance Swagger.ToSchema OrderSellRequest where
         mempty
           & Swagger.type_ ?~ Swagger.SwaggerObject
           & Swagger.properties
-            .~ [ (T.pack ownerTag, gypubkeyhashSchema)
+            .~ [ (T.pack ownerTag, gYPaymentKeyHashSchema)
                , (T.pack amountTag, naturalSchema)
                , (T.pack priceTag, naturalSchema)
                , (T.pack utxoTag, gytxOutRefSchema)
@@ -80,7 +80,7 @@ instance Swagger.ToSchema OrderSellRequest where
           & Swagger.minProperties ?~ 4
 
 data OrderUpdateRequest = OrderUpdateRequest
-  { owner :: !GYPubKeyHash
+  { owner :: !GYPaymentKeyHash
   -- ^ The user ID. The owner of the order.
   , updatedPrice :: !Natural
   -- ^ The sell price per unit of carbon.
@@ -111,7 +111,7 @@ instance Aeson.ToJSON OrderUpdateRequest where
 
 instance Swagger.ToSchema OrderUpdateRequest where
   declareNamedSchema _ = do
-    gypubkeyhashSchema <- Swagger.declareSchemaRef @GYPubKeyHash Proxy
+    gYPaymentKeyHashSchema <- Swagger.declareSchemaRef @GYPaymentKeyHash Proxy
     naturalSchema <- Swagger.declareSchemaRef @Natural Proxy
     gytxOutRefSchema <- Swagger.declareSchemaRef @GYTxOutRef Proxy
     return $
@@ -119,7 +119,7 @@ instance Swagger.ToSchema OrderUpdateRequest where
         mempty
           & Swagger.type_ ?~ Swagger.SwaggerObject
           & Swagger.properties
-            .~ [ (T.pack ownerTag, gypubkeyhashSchema)
+            .~ [ (T.pack ownerTag, gYPaymentKeyHashSchema)
                , (T.pack newPriceTag, naturalSchema)
                , (T.pack utxoTag, gytxOutRefSchema)
                ]
@@ -129,7 +129,7 @@ instance Swagger.ToSchema OrderUpdateRequest where
           & Swagger.minProperties ?~ 3
 
 data OrderCancelRequest = OrderCancelRequest
-  { owner :: !GYPubKeyHash
+  { owner :: !GYPaymentKeyHash
   -- ^ The user ID who is owner of the order.
   , cancelOrderUtxo :: !GYTxOutRef
   -- ^ The order UTXO reference.
@@ -146,14 +146,14 @@ instance Aeson.FromJSON OrderCancelRequest where
 
 instance Swagger.ToSchema OrderCancelRequest where
   declareNamedSchema _ = do
-    gypubkeyhashSchema <- Swagger.declareSchemaRef @GYPubKeyHash Proxy
+    gYPaymentKeyHashSchema <- Swagger.declareSchemaRef @GYPaymentKeyHash Proxy
     gytxOutRefSchema <- Swagger.declareSchemaRef @GYTxOutRef Proxy
     return $
       Swagger.named "OrderCancelRequestParam" $
         mempty
           & Swagger.type_ ?~ Swagger.SwaggerObject
           & Swagger.properties
-            .~ [ (T.pack ownerTag, gypubkeyhashSchema)
+            .~ [ (T.pack ownerTag, gYPaymentKeyHashSchema)
                , (T.pack utxoTag, gytxOutRefSchema)
                ]
           & Swagger.required .~ [T.pack ownerTag, T.pack utxoTag]
@@ -162,7 +162,7 @@ instance Swagger.ToSchema OrderCancelRequest where
           & Swagger.minProperties ?~ 2
 
 data OrderBuyRequest = OrderBuyRequest
-  { buyer :: !GYPubKeyHash
+  { buyer :: !GYPaymentKeyHash
   -- ^ The user ID.
   , buyAmount :: !Natural
   -- ^ The amount of carbon to buy.
@@ -191,7 +191,7 @@ instance Aeson.ToJSON OrderBuyRequest where
         Aeson..= orderUtxo
 instance Swagger.ToSchema OrderBuyRequest where
   declareNamedSchema _ = do
-    gypubkeyhashSchema <- Swagger.declareSchemaRef @GYPubKeyHash Proxy
+    gYPaymentKeyHashSchema <- Swagger.declareSchemaRef @GYPaymentKeyHash Proxy
     naturalSchema <- Swagger.declareSchemaRef @Natural Proxy
     gytxOutRefSchema <- Swagger.declareSchemaRef @GYTxOutRef Proxy
     return $
@@ -199,7 +199,7 @@ instance Swagger.ToSchema OrderBuyRequest where
         mempty
           & Swagger.type_ ?~ Swagger.SwaggerObject
           & Swagger.properties
-            .~ [ (T.pack buyerTag, gypubkeyhashSchema)
+            .~ [ (T.pack buyerTag, gYPaymentKeyHashSchema)
                , (T.pack amountTag, naturalSchema)
                , (T.pack utxoTag, gytxOutRefSchema)
                ]

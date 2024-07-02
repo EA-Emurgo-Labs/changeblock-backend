@@ -17,9 +17,9 @@ mintIpfsNftCarbonToken ::
   -- | Owner Address
   GYAddress ->
   -- | owner Pubkey hash
-  GYPubKeyHash ->
+  GYPaymentKeyHash ->
   -- | Issuer Pubkey hash
-  GYPubKeyHash ->
+  GYPaymentKeyHash ->
   -- | TokenName generated with combination of IPFS hash
   GYTokenName ->
   -- | Marketplace Sale Price
@@ -37,8 +37,8 @@ mintIpfsNftCarbonToken oref marketplaceAddr ownerAddr ownerPkh issuerPkh tn mktS
 
       marketPlaceDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus ownerPkh
-          , mktDtmIssuer = pubKeyHashToPlutus issuerPkh
+          { mktDtmOwner = paymentKeyHashToPlutus ownerPkh
+          , mktDtmIssuer = paymentKeyHashToPlutus issuerPkh
           , mktDtmIsSell = 1
           , mktDtmSalePrice = mktSalePrice
           , mktDtmAssetSymbol = mintingPolicyCurrencySymbol carbonTokenPolicy

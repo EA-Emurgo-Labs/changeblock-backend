@@ -5,7 +5,7 @@ module EA.Wallet (
   eaGetCollateralFromInternalWallet,
   eaGetAddresses,
   eaGetAddresses',
-  eaGetAddressFromPubkeyhash,
+  eaGetaddressFromPaymentKeyHash,
   eaSelectOref,
 )
 where
@@ -25,12 +25,14 @@ import EA.Api.Types (UserId)
 import GeniusYield.Types (
   GYAddress,
   GYNetworkId,
-  GYPubKeyHash,
+  GYPaymentKeyHash,
   GYTxOutRef,
   GYUTxO (utxoRef),
   addressToPubKeyHash,
   filterUTxOs,
   gyQueryUtxosAtAddresses,
+  paymentKeyHashFromApi,
+  pubKeyHashToApi,
   randomTxOutRef,
  )
 import Internal.Wallet (PaymentKey, RootKey, deriveAddress)
@@ -80,11 +82,11 @@ eaGetAddresses' userId nid rootK pool = do
   pkh <- eaLiftMaybe "cannot get pub key hash from address" $ do
     (addr, _) <- listToMaybe pairs
     addressToPubKeyHash addr
-  void . liftIO $ runSqlPool (saveToUserLookup userId pkh) pool
+  void . liftIO $ runSqlPool (saveToUserLookup userId (paymentKeyHashFromApi $ pubKeyHashToApi pkh)) pool
   return pairs
 
-eaGetAddressFromPubkeyhash :: GYPubKeyHash -> EAApp (Maybe (GYAddress, PaymentKey))
-eaGetAddressFromPubkeyhash pkh = do
+eaGetaddressFromPaymentKeyHash :: GYPaymentKeyHash -> EAApp (Maybe (GYAddress, PaymentKey))
+eaGetaddressFromPaymentKeyHash pkh = do
   nid <- asks eaAppEnvGYNetworkId
   rootK <- asks eaAppEnvRootKey
   pool <- asks eaAppEnvSqlPool

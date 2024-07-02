@@ -3,7 +3,7 @@ module EA.Api.Order.Exception (OrderApiException (..)) where
 import EA.Script.Marketplace (MarketplaceInfo (..))
 import EA.Script.Oracle (OracleInfo (..))
 import GeniusYield.HTTP.Errors
-import GeniusYield.Types (GYAddress, GYPubKeyHash)
+import GeniusYield.Types (GYAddress, GYPaymentKeyHash)
 import Network.HTTP.Types (status400)
 
 data OrderApiException
@@ -19,7 +19,7 @@ data OrderApiException
   | SameOrderPrice {orderExpMarketplaceInfo :: MarketplaceInfo, ordExpPrice :: Integer}
   | OrderNotForSale {ordExpMarketplaceInfo :: MarketplaceInfo}
   | NonSellOrderPriceUpdate {ordExpMarketplaceInfo :: MarketplaceInfo}
-  | InvalidBuyerPubKey {ordExpBuyerPubKey :: GYPubKeyHash}
+  | InvalidBuyerPubKey {ordExpBuyerPubKey :: GYPaymentKeyHash}
   deriving stock (Show)
   deriving anyclass (Exception)
 

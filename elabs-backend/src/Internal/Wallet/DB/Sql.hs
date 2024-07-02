@@ -41,7 +41,7 @@ import Internal.Wallet.DB.Schema (
 import Database.Esqueleto.Experimental (InnerJoin (InnerJoin), select, val, where_, (&&.), (==.), (?.), (^.))
 import Database.Esqueleto.Experimental qualified as E
 import Database.Esqueleto.Legacy qualified as EL
-import GeniusYield.Types (GYPubKeyHash)
+import GeniusYield.Types (GYPaymentKeyHash)
 
 --------------------------------------------------------------------------------
 
@@ -98,7 +98,7 @@ getWalletIndexPairs' userId n = do
   when (null pairs) $ createWalletIndexPair (Just userId) n False
   getWalletIndexPairs userId
 
-getWalletIndexPairsFromPubkeyhash :: (MonadIO m) => GYPubKeyHash -> ReaderT SqlBackend m (Maybe (Tagged "Account" Int64, Tagged "Address" Int64))
+getWalletIndexPairsFromPubkeyhash :: (MonadIO m) => GYPaymentKeyHash -> ReaderT SqlBackend m (Maybe (Tagged "Account" Int64, Tagged "Address" Int64))
 getWalletIndexPairsFromPubkeyhash pkh = do
   address <- EL.select $
     EL.from $ \(ul `InnerJoin` w `InnerJoin` addr) -> do
@@ -192,7 +192,7 @@ addToken token notes = do
   void $ insert (Auth token notes time)
 
 -- | Save derived addresses to user lookup
-saveToUserLookup :: (MonadIO m) => UserId -> GYPubKeyHash -> ReaderT SqlBackend m ()
+saveToUserLookup :: (MonadIO m) => UserId -> GYPaymentKeyHash -> ReaderT SqlBackend m ()
 saveToUserLookup userId pkh = do
   muserId <- getUserId pkh
   when (Prelude.isNothing muserId) $ do
@@ -200,7 +200,7 @@ saveToUserLookup userId pkh = do
     void $ insert (UserLookup userId pkh time)
 
 -- | Get user ID from public key hash
-getUserId :: (MonadIO m) => GYPubKeyHash -> ReaderT SqlBackend m (Maybe UserId)
+getUserId :: (MonadIO m) => GYPaymentKeyHash -> ReaderT SqlBackend m (Maybe UserId)
 getUserId pkh = do
   user <- EL.select $ EL.from $ \ul -> do
     where_ (ul ^. UserLookupPubkeyhash ==. val pkh)

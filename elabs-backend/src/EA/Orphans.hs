@@ -3,7 +3,7 @@
 
 module EA.Orphans (
   MultipartFormDataTmp,
-  GYPubKeyHash,
+  GYPaymentKeyHash,
 ) where
 
 import Cardano.Api qualified as Api
@@ -23,7 +23,7 @@ import Database.Persist.Postgresql (PersistFieldSql (sqlType))
 import Database.Persist.Sql (PersistField (toPersistValue))
 import EA.Api.Types (CarbonMintRequest (..), UserId (..))
 import EA.Internal (addConsumes, addDescription, addParam)
-import GeniusYield.Types (GYPubKeyHash, pubKeyHashToApi)
+import GeniusYield.Types (GYPaymentKeyHash, paymentKeyHashToApi)
 import Servant (Tagged, (:>))
 import Servant.Multipart (MultipartData, MultipartForm, Tmp)
 import Servant.Swagger (HasSwagger (..))
@@ -79,16 +79,16 @@ carbonMintRequestExample = CarbonMintRequest (UserId 14) 100000 1000
 
 --------------------------------------------------------------------------------
 
-instance PersistField GYPubKeyHash where
+instance PersistField GYPaymentKeyHash where
   toPersistValue =
     (toPersistValue :: String -> PersistValue)
       . T.unpack
       . Api.serialiseToRawBytesHexText
-      . pubKeyHashToApi
+      . paymentKeyHashToApi
 
   fromPersistValue x = case (fromPersistValue x :: Either Text String) of
-    Left err -> Left $ T.replace "String" "GYPubKeyHash" err
+    Left err -> Left $ T.replace "String" "GYPaymentKeyHash" err
     Right pkh -> Right $ fromString pkh
 
-instance PersistFieldSql GYPubKeyHash where
+instance PersistFieldSql GYPaymentKeyHash where
   sqlType _ = SqlString

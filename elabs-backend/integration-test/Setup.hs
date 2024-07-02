@@ -120,9 +120,9 @@ withEASetup = do
           , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
           , eaAppEnvOracleRefInputUtxo = Nothing
           , eaAppEnvMarketplaceRefScriptUtxo = Nothing
-          , eaAppEnvMarketplaceBackdoorPubKeyHash = backdoorPubkeyHash
-          , eaAppEnvOracleOperatorPubKeyHash = oracleOperatorPubkeyHash
-          , eaAppEnvMarketplaceEscrowPubKeyHash = escrowPubkeyHash
+          , eaAppEnvMarketplaceBackdoorPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi backdoorPubkeyHash
+          , eaAppEnvOracleOperatorPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi oracleOperatorPubkeyHash
+          , eaAppEnvMarketplaceEscrowPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
           , eaAppEnvOracleNftMintingPolicyId = Just orcPolicy
           , eaAppEnvOracleNftTokenName = Just orcTn
           , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "76312e302e30"
@@ -180,11 +180,11 @@ withEASetup = do
         marketplaceParams =
           MarketplaceParams
             { mktPrmOracleValidator = validatorHash orcValidator
-            , mktPrmEscrowValidator = escrowPubkeyHash
+            , mktPrmEscrowValidator = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
             , mktPrmVersion = eaAppEnvMarketplaceVersion env
             , mktPrmOracleSymbol = oracleNftAsset
             , mktPrmOracleTokenName = orcTokenName
-            , mktPrmBackdoor = backdoorPubkeyHash
+            , mktPrmBackdoor = paymentKeyHashFromApi $ pubKeyHashToApi backdoorPubkeyHash
             }
 
     txBody <-
@@ -281,7 +281,7 @@ createTestCarbonToken EACtx {..} = do
   oref <- randomTxOutRef utxos >>= maybe (error "No utxos found") (\(oref, _) -> return oref)
   marketplaceAddr <- runGYTxQueryMonadNode nid providers $ scriptAddress (marketplaceValidator eaCtxMarketplaceParams scripts)
 
-  let tx = mintIpfsNftCarbonToken oref marketplaceAddr issuerAddr issuerPubKeyHash issuerPubKeyHash tokenName 100 20000 scripts
+  let tx = mintIpfsNftCarbonToken oref marketplaceAddr issuerAddr (paymentKeyHashFromApi $ pubKeyHashToApi issuerPubKeyHash) (paymentKeyHashFromApi $ pubKeyHashToApi issuerPubKeyHash) tokenName 100 20000 scripts
   txBody <- liftIO $ ctxRunI eaCtxCtx user $ return tx
   txId <- submitTx eaCtxCtx user txBody
   gyAwaitTxConfirmed providers (GYAwaitTxParameters 5 5_000_000 1) txId

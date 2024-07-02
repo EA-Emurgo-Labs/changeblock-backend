@@ -9,7 +9,7 @@ import EA.Script.Marketplace (MarketplaceInfo (mktInfoAmount, mktInfoIsSell, mkt
 import EA.Test.Helpers qualified as Helpers
 import EA.Wallet (eaGetAddresses)
 import GeniusYield.TxBuilder (addressToPubKeyHashIO)
-import GeniusYield.Types (valueFromLovelace)
+import GeniusYield.Types (paymentKeyHashFromApi, pubKeyHashToApi, valueFromLovelace)
 import Network.HTTP.Types (methodPost)
 import Setup (EACtx (..), checkResponseTxConfirmed, sendFundsToAddress, server, withEaCtx)
 import Test.Tasty (TestTree, testGroup)
@@ -31,6 +31,7 @@ tests eaCtx =
             void $ sendFundsToAddress buyerAddr (valueFromLovelace 100_000_000) eaCtxCtx
 
             buyerPubkeyHash <- addressToPubKeyHashIO buyerAddr
+            let buyerPaymentKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi buyerPubkeyHash
 
             (utxoRef, qty) <- runEAApp eaCtxEnv $ do
               mInfos <- eaMarketplaceInfos eaCtxMarketplaceParams
@@ -39,7 +40,7 @@ tests eaCtx =
               let qty = if mktInfoAmount sellInfo > 100 then mktInfoAmount sellInfo `div` 10 else mktInfoAmount sellInfo
               pure (mktInfoTxOutRef sellInfo, fromInteger qty)
 
-            let jsonData = Aeson.encode $ OrderBuyRequest buyerPubkeyHash qty utxoRef
+            let jsonData = Aeson.encode $ OrderBuyRequest buyerPaymentKeyHash qty utxoRef
 
             -- Sending some fund to the buyer
             step "Sending POST request to /api/v0/orders/buy"

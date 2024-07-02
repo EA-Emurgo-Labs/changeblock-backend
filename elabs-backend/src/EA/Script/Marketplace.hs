@@ -76,11 +76,11 @@ PlutusTx.unstableMakeIsData ''MarketplaceDatum
 
 data MarketplaceParams = MarketplaceParams
   { mktPrmOracleValidator :: GYValidatorHash
-  , mktPrmEscrowValidator :: GYPubKeyHash
+  , mktPrmEscrowValidator :: GYPaymentKeyHash
   , mktPrmVersion :: GYTokenName
   , mktPrmOracleSymbol :: GYMintingPolicyId
   , mktPrmOracleTokenName :: GYTokenName
-  , mktPrmBackdoor :: GYPubKeyHash
+  , mktPrmBackdoor :: GYPaymentKeyHash
   }
   deriving stock (Show)
 
@@ -88,11 +88,11 @@ marketPlaceParamsToScriptParams :: MarketplaceParams -> MarketplaceScriptParams
 marketPlaceParamsToScriptParams MarketplaceParams {..} =
   MarketplaceScriptParams
     { mktSpOracleValidator = validatorHashToPlutus mktPrmOracleValidator
-    , mktSpEscrowValidator = pubKeyHashToPlutus mktPrmEscrowValidator
+    , mktSpEscrowValidator = paymentKeyHashToPlutus mktPrmEscrowValidator
     , mktSpVersion = tokenNameToPlutus mktPrmVersion
-    , mktSpOracleSymbol = mintingPolicyIdCurrencySymbol mktPrmOracleSymbol
+    , mktSpOracleSymbol = mintingPolicyIdToCurrencySymbol mktPrmOracleSymbol
     , mktSpOracleTokenName = tokenNameToPlutus mktPrmOracleTokenName
-    , mktSpBackdoor = pubKeyHashToPlutus mktPrmBackdoor
+    , mktSpBackdoor = paymentKeyHashToPlutus mktPrmBackdoor
     }
 
 data MarketplaceOrderType = M_BUY | M_SELL
@@ -138,12 +138,12 @@ data MarketplaceInfo = MarketplaceInfo
   { mktInfoTxOutRef :: GYTxOutRef
   , mktInfoAddress :: GYAddress
   , mktInfoValue :: GYValue
-  , mktInfoOwner :: GYPubKeyHash
+  , mktInfoOwner :: GYPaymentKeyHash
   , mktInfoSalePrice :: Integer
   , mktInfoCarbonPolicyId :: GYMintingPolicyId
   , mktInfoCarbonAssetName :: GYTokenName
   , mktInfoAmount :: Integer
-  , mktInfoIssuer :: GYPubKeyHash
+  , mktInfoIssuer :: GYPaymentKeyHash
   , mktInfoIsSell :: MarketplaceOrderType
   , mktInfoAdaPrice :: Maybe Double
   , mktInfoTokenPrice :: Maybe Double
@@ -200,7 +200,7 @@ instance Swagger.ToSchema MarketplaceInfo where
     txOutRefSchema <- Swagger.declareSchemaRef @GYTxOutRef Proxy
     addressSchema <- Swagger.declareSchemaRef @GYAddress Proxy
     valueSchema <- Swagger.declareSchemaRef @GYValue Proxy
-    pubKeyHashSchema <- Swagger.declareSchemaRef @GYPubKeyHash Proxy
+    pubKeyHashSchema <- Swagger.declareSchemaRef @GYPaymentKeyHash Proxy
     mintingPolicyIdSchema <- Swagger.declareSchemaRef @GYMintingPolicyId Proxy
     tokenNameSchema <- Swagger.declareSchemaRef @GYTokenName Proxy
     orderTypeSchema <- Swagger.declareSchemaRef @MarketplaceOrderType Proxy
@@ -232,12 +232,12 @@ instance Swagger.ToSchema MarketplaceInfo where
 marketplaceInfoToDatum :: MarketplaceInfo -> MarketplaceDatum
 marketplaceInfoToDatum MarketplaceInfo {..} =
   MarketplaceDatum
-    { mktDtmOwner = pubKeyHashToPlutus mktInfoOwner
+    { mktDtmOwner = paymentKeyHashToPlutus mktInfoOwner
     , mktDtmSalePrice = mktInfoSalePrice
-    , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol mktInfoCarbonPolicyId
+    , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol mktInfoCarbonPolicyId
     , mktDtmAssetName = tokenNameToPlutus mktInfoCarbonAssetName
     , mktDtmAmount = mktInfoAmount
-    , mktDtmIssuer = pubKeyHashToPlutus mktInfoIssuer
+    , mktDtmIssuer = paymentKeyHashToPlutus mktInfoIssuer
     , mktDtmIsSell = toInteger $ fromEnum mktInfoIsSell
     }
 
@@ -263,12 +263,12 @@ marketplaceDatumToInfo oref val addr datum mAdaPrice = do
       { mktInfoTxOutRef = oref
       , mktInfoAddress = addr
       , mktInfoValue = val
-      , mktInfoOwner = pubkeyOwner
+      , mktInfoOwner = paymentKeyHashFromApi $ pubKeyHashToApi pubkeyOwner
       , mktInfoSalePrice = salePrice
       , mktInfoCarbonPolicyId = tokenPolicy
       , mktInfoCarbonAssetName = tokenName
       , mktInfoAmount = mktDtmAmount datum
-      , mktInfoIssuer = pubkeyIssuer
+      , mktInfoIssuer = paymentKeyHashFromApi $ pubKeyHashToApi pubkeyIssuer
       , mktInfoIsSell = toEnum $ fromInteger $ mktDtmIsSell datum
       , mktInfoAdaPrice = mAdaPrice
       , mktInfoTokenPrice = tknPrice
