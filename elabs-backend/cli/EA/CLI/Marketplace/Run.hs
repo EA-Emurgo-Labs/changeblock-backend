@@ -4,13 +4,13 @@ import EA (EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvMarketplaceBackdoorPubKeyHash,
 import EA.CLI.Helper (fetchCoreCfg, fetchRootKeyFilePath)
 import EA.CLI.Marketplace.Command (MarketplaceCommand (MarketplaceDeployScript, MarketplaceWithdrawScript), MarketplaceDeployCommand (MarketplaceDeployCommand), MarketplaceWithdrawCommand (..))
 import EA.Script (oracleValidator)
-import EA.Script.Marketplace (MarketplaceParams (..))
+import EA.Script.Marketplace (MarketplaceInfo (MarketplaceInfo, mktInfoOwner), MarketplaceParams (..))
 import EA.Tx.Changeblock.Marketplace (deployScript, withdrawCarbonToken)
-import EA.Wallet (eaGetCollateralFromInternalWallet, eaGetInternalAddresses, eaSelectOref)
+import EA.Wallet (eaGetCollateralFromInternalWallet, eaGetInternalAddresses, eaGetaddressFromPaymentKeyHash, eaSelectOref)
 import GeniusYield.GYConfig (withCfgProviders)
 import GeniusYield.Imports (printf)
 import GeniusYield.TxBuilder (runGYTxMonadNode)
-import GeniusYield.Types (GYAssetClass (GYToken), addressFromPaymentKeyHash, readSomeSigningKey, signGYTxBody, unsafeAddressFromText, validatorHash)
+import GeniusYield.Types (GYAddress, GYAssetClass (GYToken), addressFromPaymentKeyHash, readSomeSigningKey, signGYTxBody, unsafeAddressFromText, unsafeTokenNameFromHex, validatorHash)
 import Internal.Wallet qualified as Wallet
 
 runMarketplaceCommand :: MarketplaceCommand -> IO ()
@@ -88,7 +88,12 @@ runMarketplaceCommand (MarketplaceWithdrawScript MarketplaceWithdrawCommand {..}
       backdoorAddr = addressFromPaymentKeyHash networkId backdoorPubkeyHash
 
   mInfos <- runEAApp env $ eaMarketplaceInfos marketplaceParams
-  let skeleton = withdrawCarbonToken networkId marketplaceParams (unsafeAddressFromText mktWdrOutAddress) (GYToken mktWdrCarbonPolicyId mktWdrCarbonTokenName) scripts mInfos mktWdrQty
+  mInfosWithAddrs <- mapM (withMktInfoOwnerAddrs env) mInfos
+
+  let skeleton = withdrawCarbonToken marketplaceParams (unsafeAddressFromText mktWdrOutAddress) (GYToken mktWdrCarbonPolicyId $ unsafeTokenNameFromHex mktWdrCarbonTokenName) scripts (catMaybes mInfosWithAddrs) mktWdrQty
+
+  print skeleton
+
   txBody <-
     liftIO $
       runGYTxMonadNode networkId providers [backdoorAddr] backdoorAddr Nothing (return skeleton)
@@ -96,3 +101,8 @@ runMarketplaceCommand (MarketplaceWithdrawScript MarketplaceWithdrawCommand {..}
   gyTxId <- runEAApp env $ eaSubmitTx $ signGYTxBody txBody [backdoorSkey]
 
   printf "\n \n Withdraw Transaction submitted with TxId: %s  \n" gyTxId
+  where
+    withMktInfoOwnerAddrs :: EAAppEnv -> MarketplaceInfo -> IO (Maybe (GYAddress, MarketplaceInfo))
+    withMktInfoOwnerAddrs env minfo@MarketplaceInfo {..} = do
+      ownerAddr <- runEAApp env $ eaGetaddressFromPaymentKeyHash mktInfoOwner
+      return $ (\(addr, _) -> Just (addr, minfo)) =<< ownerAddr
