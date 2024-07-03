@@ -84,9 +84,9 @@ marketplaceValidator mktParam scripts =
           # AsData mktSpBackdoor
 
 oracleValidator ::
-  GYAssetClass -> GYPubKeyHash -> Scripts -> GYValidator 'PlutusV2
+  GYAssetClass -> GYPaymentKeyHash -> Scripts -> GYValidator 'PlutusV2
 oracleValidator asset pHash scripts =
   validatorFromPly $
     scriptOracleValidator scripts
       # (AsData . assetClassToPlutus $ asset)
-      # (AsData . pubKeyHashToPlutus $ pHash)
+      # (AsData . paymentKeyHashToPlutus $ pHash)

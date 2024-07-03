@@ -9,7 +9,7 @@ import EA.Script.Marketplace (MarketplaceInfo (mktInfoIsSell, mktInfoOwner, mktI
 import EA.Test.Helpers qualified as Helpers
 import EA.Wallet (eaGetAddresses)
 import GeniusYield.TxBuilder (addressToPubKeyHashIO)
-import GeniusYield.Types (valueFromLovelace)
+import GeniusYield.Types (paymentKeyHashFromApi, pubKeyHashToApi, valueFromLovelace)
 import Network.HTTP.Types (methodPost)
 import Setup (EACtx (..), checkResponseTxConfirmed, sendFundsToAddress, server, withEaCtx)
 import Test.Tasty (TestTree, testGroup)
@@ -28,17 +28,18 @@ tests eaCtx =
               pure $ head $ NE.fromList addrs
 
             ownerPubkeyHash <- addressToPubKeyHashIO ownerAddr
+            let ownerPaymentKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi ownerPubkeyHash
 
             -- Sending 100 ADA to the owner
             void $ sendFundsToAddress ownerAddr (valueFromLovelace 100_000_000) eaCtxCtx
 
             utxoRef <- runEAApp eaCtxEnv $ do
               mInfos <- eaMarketplaceInfos eaCtxMarketplaceParams
-              sellInfo <- eaLiftMaybe "No sell order found" $ find (\mi -> mktInfoIsSell mi == M_BUY && mktInfoOwner mi == ownerPubkeyHash) mInfos
+              sellInfo <- eaLiftMaybe "No sell order found" $ find (\mi -> mktInfoIsSell mi == M_BUY && mktInfoOwner mi == ownerPaymentKeyHash) mInfos
 
               pure $ mktInfoTxOutRef sellInfo
 
-            let jsonData = Aeson.encode $ OrderSellRequest ownerPubkeyHash 500 100 utxoRef
+            let jsonData = Aeson.encode $ OrderSellRequest ownerPaymentKeyHash 500 100 utxoRef
 
             -- Sending some fund to the buyer
             step "Sending POST request to /api/v0/orders/create_sell_order"

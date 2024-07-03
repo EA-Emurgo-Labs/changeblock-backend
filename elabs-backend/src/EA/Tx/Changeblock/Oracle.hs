@@ -39,7 +39,7 @@ updateOracle ::
   -- | Oracle NFT Token Name
   GYTokenName ->
   -- | Operator PubKeyHash
-  GYPubKeyHash ->
+  GYPaymentKeyHash ->
   -- | Oracle Validator
   GYValidator 'PlutusV2 ->
   -- Tx Skeleton
@@ -57,7 +57,7 @@ deleteOracle ::
   -- The Oracle Info To delete
   OracleInfo ->
   -- The Operator PubKeyHash
-  GYPubKeyHash ->
+  GYPaymentKeyHash ->
   -- The Oracle Validator
   GYValidator 'PlutusV2 ->
   -- Tx Skeleton

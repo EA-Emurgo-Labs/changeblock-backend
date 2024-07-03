@@ -39,8 +39,8 @@ import EA.Tx.Changeblock.Marketplace (
   sell,
  )
 import EA.Wallet (
-  eaGetAddressFromPubkeyhash,
   eaGetCollateralFromInternalWallet,
+  eaGetaddressFromPaymentKeyHash,
  )
 import GeniusYield.TxBuilder (GYTxSkeleton, runGYTxMonadNode)
 import GeniusYield.Types
@@ -202,8 +202,8 @@ handleOrderRequestSell OrderSellRequest {..} = withMarketplaceApiCtx $ \mCtx@Mar
   -- Owner address and signing Key
   (ownerAddr, ownerKey) <-
     eaLiftMaybeApiError (OrderInvalidOwner marketplaceInfo)
-      . find (\(a, _) -> addressToPubKeyHash a == Just (mktInfoOwner marketplaceInfo))
-      =<< eaGetAddressFromPubkeyhash owner
+      . find (\(a, _) -> addressToPubKeyHash a == Just (pubKeyHashFromApi $ paymentKeyHashToApi $ mktInfoOwner marketplaceInfo))
+      =<< eaGetaddressFromPaymentKeyHash owner
 
   handleTx mCtx ownerAddr ownerKey $
     adjustOrders mktCtxNetworkId marketplaceInfo mktCtxOracleRefInput mktCtxMarketplaceRefScript (toInteger sellReqPrice) (toInteger sellReqAmount) Marketplace.M_SELL mktCtxParams mktCtxScripts
@@ -226,15 +226,15 @@ handleOrderBuy OrderBuyRequest {..} = withMarketplaceApiCtx $ \mCtx@MarketplaceA
   -- Get the user address & signing key  from user ID
   (buyerAddr, buyerKey) <-
     eaLiftMaybeApiError (InvalidBuyerPubKey buyer)
-      =<< eaGetAddressFromPubkeyhash buyer
+      =<< eaGetaddressFromPaymentKeyHash buyer
 
   buyerPubkeyHash <- eaLiftMaybeApiError (EaCannotDecodeAddress buyer) (addressToPubKeyHash buyerAddr)
   let tx =
         if isPartial marketplaceInfo
           then -- Partial buy
-            partialBuy mktCtxNetworkId marketplaceInfo mktCtxOracleRefInput buyerPubkeyHash (toInteger buyAmount) mktCtxMarketplaceRefScript mktCtxParams mktCtxScripts
+            partialBuy mktCtxNetworkId marketplaceInfo mktCtxOracleRefInput (paymentKeyHashFromApi $ pubKeyHashToApi buyerPubkeyHash) (toInteger buyAmount) mktCtxMarketplaceRefScript mktCtxParams mktCtxScripts
           else -- Full buy
-            buy mktCtxNetworkId marketplaceInfo mktCtxOracleRefInput buyerPubkeyHash mktCtxMarketplaceRefScript mktCtxParams mktCtxScripts
+            buy mktCtxNetworkId marketplaceInfo mktCtxOracleRefInput (paymentKeyHashFromApi $ pubKeyHashToApi buyerPubkeyHash) mktCtxMarketplaceRefScript mktCtxParams mktCtxScripts
 
   handleTx mCtx buyerAddr buyerKey tx
   where
@@ -256,8 +256,8 @@ handleOrderCancel OrderCancelRequest {..} = withMarketplaceApiCtx $ \mCtx@Market
   -- Owner address and signing Key
   (ownerAddr, ownerKey) <-
     eaLiftMaybeApiError (OrderNoOwnerAddress marketplaceInfo)
-      . find (\(a, _) -> addressToPubKeyHash a == Just (mktInfoOwner marketplaceInfo))
-      =<< eaGetAddressFromPubkeyhash owner
+      . find (\(a, _) -> addressToPubKeyHash a == Just (pubKeyHashFromApi $ paymentKeyHashToApi $ mktInfoOwner marketplaceInfo))
+      =<< eaGetaddressFromPaymentKeyHash owner
 
   handleTx mCtx ownerAddr ownerKey $ cancel mktCtxNetworkId marketplaceInfo mktCtxOracleRefInput mktCtxMarketplaceRefScript mktCtxParams mktCtxScripts
   where
@@ -275,8 +275,8 @@ handleOrderUpdate OrderUpdateRequest {..} = withMarketplaceApiCtx $ \mCtx@Market
   -- Owner address and signing Key
   (ownerAddr, ownerKey) <-
     eaLiftMaybeApiError (OrderNoOwnerAddress marketplaceInfo)
-      . find (\(a, _) -> addressToPubKeyHash a == Just (mktInfoOwner marketplaceInfo))
-      =<< eaGetAddressFromPubkeyhash owner
+      . find (\(a, _) -> addressToPubKeyHash a == Just (pubKeyHashFromApi $ paymentKeyHashToApi $ mktInfoOwner marketplaceInfo))
+      =<< eaGetaddressFromPaymentKeyHash owner
 
   handleTx mCtx ownerAddr ownerKey $ sell mktCtxNetworkId marketplaceInfo mktCtxOracleRefInput mktCtxMarketplaceRefScript (toInteger updatedPrice) mktCtxParams mktCtxScripts
   where

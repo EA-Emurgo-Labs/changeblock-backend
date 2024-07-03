@@ -1,4 +1,4 @@
-module EA.Tx.Changeblock.Marketplace (buy, partialBuy, sell, cancel, merge, adjustOrders, deployScript) where
+module EA.Tx.Changeblock.Marketplace (buy, partialBuy, sell, cancel, merge, adjustOrders, deployScript, withdrawCarbonToken) where
 
 import EA ()
 import EA.Script (Scripts, marketplaceValidator)
@@ -16,7 +16,7 @@ import GeniusYield.Types
 
 import Data.List.NonEmpty qualified as NE
 
-type BuyerPubkeyHash = GYPubKeyHash
+type BuyerPubkeyHash = GYPaymentKeyHash
 
 mkMarketplaceInput :: GYValidator 'PlutusV2 -> Maybe GYTxOutRef -> MarketplaceInfo -> MarketplaceAction -> GYTxIn 'PlutusV2
 mkMarketplaceInput validator mRefScript info action =
@@ -49,17 +49,17 @@ buy ::
   GYTxSkeleton 'PlutusV2
 buy nid info@MarketplaceInfo {..} OracleInfo {..} buyerPubKeyHash mMarketplaceRefScript mktPlaceParams scripts =
   let mktPlaceValidator = marketplaceValidator mktPlaceParams scripts
-      escrowAddress = addressFromPubKeyHash nid (mktPrmEscrowValidator mktPlaceParams)
-      ownerAddress = addressFromPubKeyHash nid mktInfoOwner
+      escrowAddress = addressFromPaymentKeyHash nid (mktPrmEscrowValidator mktPlaceParams)
+      ownerAddress = addressFromPaymentKeyHash nid mktInfoOwner
 
       newDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus buyerPubKeyHash
+          { mktDtmOwner = paymentKeyHashToPlutus buyerPubKeyHash
           , mktDtmSalePrice = mktInfoSalePrice
-          , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol mktInfoCarbonPolicyId
+          , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol mktInfoCarbonPolicyId
           , mktDtmAssetName = tokenNameToPlutus mktInfoCarbonAssetName
           , mktDtmAmount = mktInfoAmount
-          , mktDtmIssuer = pubKeyHashToPlutus mktInfoIssuer
+          , mktDtmIssuer = paymentKeyHashToPlutus mktInfoIssuer
           , mktDtmIsSell = 0
           }
    in mustHaveRefInput orcInfoUtxoRef
@@ -89,28 +89,28 @@ partialBuy ::
   GYTxSkeleton 'PlutusV2
 partialBuy nid info@MarketplaceInfo {..} OracleInfo {..} buyerPubKeyHash amount mMarketplaceRefScript mktplaceParams scripts =
   let mktPlaceValidator = marketplaceValidator mktplaceParams scripts
-      escrowAddress = addressFromPubKeyHash nid (mktPrmEscrowValidator mktplaceParams)
-      ownerAddress = addressFromPubKeyHash nid mktInfoOwner
+      escrowAddress = addressFromPaymentKeyHash nid (mktPrmEscrowValidator mktplaceParams)
+      ownerAddress = addressFromPaymentKeyHash nid mktInfoOwner
 
       newOwnerDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus buyerPubKeyHash
+          { mktDtmOwner = paymentKeyHashToPlutus buyerPubKeyHash
           , mktDtmSalePrice = mktInfoSalePrice
-          , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol mktInfoCarbonPolicyId
+          , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol mktInfoCarbonPolicyId
           , mktDtmAssetName = tokenNameToPlutus mktInfoCarbonAssetName
           , mktDtmAmount = amount
-          , mktDtmIssuer = pubKeyHashToPlutus mktInfoIssuer
+          , mktDtmIssuer = paymentKeyHashToPlutus mktInfoIssuer
           , mktDtmIsSell = 0
           }
 
       changeMarketplaceDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus mktInfoOwner
+          { mktDtmOwner = paymentKeyHashToPlutus mktInfoOwner
           , mktDtmSalePrice = mktInfoSalePrice
-          , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol mktInfoCarbonPolicyId
+          , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol mktInfoCarbonPolicyId
           , mktDtmAssetName = tokenNameToPlutus mktInfoCarbonAssetName
           , mktDtmAmount = mktInfoAmount - amount
-          , mktDtmIssuer = pubKeyHashToPlutus mktInfoIssuer
+          , mktDtmIssuer = paymentKeyHashToPlutus mktInfoIssuer
           , mktDtmIsSell = 1
           }
    in mustHaveRefInput orcInfoUtxoRef
@@ -138,15 +138,15 @@ sell ::
   Scripts ->
   GYTxSkeleton 'PlutusV2
 sell nid info@MarketplaceInfo {..} OracleInfo {..} mMarketplaceRefScript newSalePrice mktplaceParams scripts =
-  let escrowAddress = addressFromPubKeyHash nid (mktPrmEscrowValidator mktplaceParams)
+  let escrowAddress = addressFromPaymentKeyHash nid (mktPrmEscrowValidator mktplaceParams)
       sellDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus mktInfoOwner
+          { mktDtmOwner = paymentKeyHashToPlutus mktInfoOwner
           , mktDtmSalePrice = newSalePrice
-          , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol mktInfoCarbonPolicyId
+          , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol mktInfoCarbonPolicyId
           , mktDtmAssetName = tokenNameToPlutus mktInfoCarbonAssetName
           , mktDtmAmount = mktInfoAmount
-          , mktDtmIssuer = pubKeyHashToPlutus mktInfoIssuer
+          , mktDtmIssuer = paymentKeyHashToPlutus mktInfoIssuer
           , mktDtmIsSell = 1
           }
    in mustHaveRefInput orcInfoUtxoRef
@@ -170,15 +170,15 @@ cancel ::
   Scripts ->
   GYTxSkeleton 'PlutusV2
 cancel nid info@MarketplaceInfo {..} OracleInfo {..} mMarketplaceRefScript mktplaceParams scripts =
-  let escrowAddress = addressFromPubKeyHash nid (mktPrmEscrowValidator mktplaceParams)
+  let escrowAddress = addressFromPaymentKeyHash nid (mktPrmEscrowValidator mktplaceParams)
       cancelDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus mktInfoOwner
+          { mktDtmOwner = paymentKeyHashToPlutus mktInfoOwner
           , mktDtmSalePrice = mktInfoSalePrice
-          , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol mktInfoCarbonPolicyId
+          , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol mktInfoCarbonPolicyId
           , mktDtmAssetName = tokenNameToPlutus mktInfoCarbonAssetName
           , mktDtmAmount = mktInfoAmount
-          , mktDtmIssuer = pubKeyHashToPlutus mktInfoIssuer
+          , mktDtmIssuer = paymentKeyHashToPlutus mktInfoIssuer
           , mktDtmIsSell = 0
           }
    in mustHaveRefInput orcInfoUtxoRef
@@ -197,7 +197,7 @@ merge ::
   -- | Optional marketplace reference script UtxoRef
   Maybe GYTxOutRef ->
   -- | The Escrow PubkeyHash
-  GYPubKeyHash ->
+  GYPaymentKeyHash ->
   -- | The Marketplace Validator
   GYValidator 'PlutusV2 ->
   GYTxSkeleton 'PlutusV2
@@ -205,16 +205,16 @@ merge nid infos OracleInfo {..} mMarketplaceRefScript escrowPubkeyHash mktValida
   let info = NE.head infos
       filteredInfos = NE.filter (\m -> mktInfoOwner m == mktInfoOwner info && mktInfoIsSell m == Marketplace.M_SELL && mktInfoIssuer m == mktInfoIssuer info) infos
       inputs = foldMap (\info -> mustHaveInput $ mkMarketplaceInput mktValidator mMarketplaceRefScript info Marketplace.MERGE) filteredInfos
-      escrowAddress = addressFromPubKeyHash nid escrowPubkeyHash
+      escrowAddress = addressFromPaymentKeyHash nid escrowPubkeyHash
       mergedAmt = sum $ mktInfoAmount <$> NE.toList infos
       newDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus $ mktInfoOwner info
+          { mktDtmOwner = paymentKeyHashToPlutus $ mktInfoOwner info
           , mktDtmSalePrice = orcInfoRate
-          , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol $ mktInfoCarbonPolicyId info
+          , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol $ mktInfoCarbonPolicyId info
           , mktDtmAssetName = tokenNameToPlutus $ mktInfoCarbonAssetName info
           , mktDtmAmount = mergedAmt
-          , mktDtmIssuer = pubKeyHashToPlutus $ mktInfoIssuer info
+          , mktDtmIssuer = paymentKeyHashToPlutus $ mktInfoIssuer info
           , mktDtmIsSell = 0
           }
    in mustHaveRefInput orcInfoUtxoRef
@@ -239,28 +239,28 @@ adjustOrders ::
   Scripts ->
   GYTxSkeleton 'PlutusV2
 adjustOrders nid info OracleInfo {..} mMarketplaceRefScript newPrice newAmount newSaleInfo marketplaceParams scripts =
-  let escrowAddress = addressFromPubKeyHash nid (mktPrmEscrowValidator marketplaceParams)
+  let escrowAddress = addressFromPaymentKeyHash nid (mktPrmEscrowValidator marketplaceParams)
       mktValidator = marketplaceValidator marketplaceParams scripts
       oldAmt = mktInfoAmount info - newAmount
       oldDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus $ mktInfoOwner info
+          { mktDtmOwner = paymentKeyHashToPlutus $ mktInfoOwner info
           , mktDtmSalePrice = mktInfoSalePrice info
-          , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol $ mktInfoCarbonPolicyId info
+          , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol $ mktInfoCarbonPolicyId info
           , mktDtmAssetName = tokenNameToPlutus $ mktInfoCarbonAssetName info
           , mktDtmAmount = oldAmt
-          , mktDtmIssuer = pubKeyHashToPlutus $ mktInfoIssuer info
+          , mktDtmIssuer = paymentKeyHashToPlutus $ mktInfoIssuer info
           , mktDtmIsSell = toInteger $ fromEnum $ mktInfoIsSell info
           }
 
       newDatum =
         MarketplaceDatum
-          { mktDtmOwner = pubKeyHashToPlutus $ mktInfoOwner info
+          { mktDtmOwner = paymentKeyHashToPlutus $ mktInfoOwner info
           , mktDtmSalePrice = newPrice
-          , mktDtmAssetSymbol = mintingPolicyIdCurrencySymbol $ mktInfoCarbonPolicyId info
+          , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol $ mktInfoCarbonPolicyId info
           , mktDtmAssetName = tokenNameToPlutus $ mktInfoCarbonAssetName info
           , mktDtmAmount = newAmount
-          , mktDtmIssuer = pubKeyHashToPlutus $ mktInfoIssuer info
+          , mktDtmIssuer = paymentKeyHashToPlutus $ mktInfoIssuer info
           , mktDtmIsSell = toInteger $ fromEnum newSaleInfo
           }
    in mustHaveRefInput orcInfoUtxoRef
@@ -275,3 +275,42 @@ deployScript toAddr marketplaceParams scripts =
   let mktValidator = marketplaceValidator marketplaceParams scripts
       out = GYTxOut toAddr (valueFromLovelace 100) Nothing (Just $ validatorToScript mktValidator)
    in mustHaveOutput out
+
+withdrawCarbonToken :: MarketplaceParams -> GYAddress -> GYAssetClass -> Scripts -> [(GYAddress, MarketplaceInfo)] -> Natural -> GYTxSkeleton 'PlutusV2
+withdrawCarbonToken mktplaceParams tokenRecvAddr carbonAsset scripts orderInfos withdrawAmt =
+  let validOrders = sortOn (\(_, m) -> mktInfoSalePrice m) $ filter canPickMktInfo orderInfos
+   in foldTx backdoorTx withdrawAmt validOrders <> withdrawTx
+  where
+    backdoorTx = mustBeSignedBy (mktPrmBackdoor mktplaceParams)
+    withdrawTx = mustHaveOutput $ mkGYTxOutNoDatum tokenRecvAddr $ valueSingleton carbonAsset (toInteger withdrawAmt)
+    mktPlaceValidator = marketplaceValidator mktplaceParams scripts
+
+    foldTx :: GYTxSkeleton 'PlutusV2 -> Natural -> [(GYAddress, MarketplaceInfo)] -> GYTxSkeleton 'PlutusV2
+    foldTx tx 0 _ = tx
+    foldTx tx amt ((ownerAddr, mInfo@MarketplaceInfo {..}) : infos) =
+      let usedAmt = min amt $ fromInteger mktInfoAmount
+          finalTx = tx <> prepareTx mInfo ownerAddr (toInteger usedAmt)
+       in foldTx finalTx (amt - usedAmt) infos
+    foldTx tx _ [] = tx
+
+    canPickMktInfo :: (GYAddress, MarketplaceInfo) -> Bool
+    canPickMktInfo (_, MarketplaceInfo {..}) = mktInfoIsSell == Marketplace.M_SELL && carbonAsset == GYToken mktInfoCarbonPolicyId mktInfoCarbonAssetName
+
+    prepareTx :: MarketplaceInfo -> GYAddress -> Integer -> GYTxSkeleton 'PlutusV2
+    prepareTx mktInfo@MarketplaceInfo {..} ownerAddress usedAmt =
+      let changeAmt = mktInfoAmount - usedAmt
+          outSellTx = mustHaveOutput $ mkGYTxOutNoDatum ownerAddress (valueFromLovelace (mktInfoSalePrice * usedAmt))
+          inTx = mustHaveInput $ mkMarketplaceInput mktPlaceValidator Nothing mktInfo Marketplace.MERGE
+          newDatum =
+            MarketplaceDatum
+              { mktDtmOwner = paymentKeyHashToPlutus mktInfoOwner
+              , mktDtmSalePrice = mktInfoSalePrice
+              , mktDtmAssetSymbol = mintingPolicyIdToCurrencySymbol mktInfoCarbonPolicyId
+              , mktDtmAssetName = tokenNameToPlutus mktInfoCarbonAssetName
+              , mktDtmAmount = changeAmt
+              , mktDtmIssuer = paymentKeyHashToPlutus mktInfoIssuer
+              , mktDtmIsSell = 1
+              }
+       in if changeAmt > 0
+            then inTx <> outSellTx <> mustHaveOutput (mkGYTxOut mktInfoAddress (mkCarbontokenValue mktInfo changeAmt) (datumFromPlutusData newDatum))
+            else inTx <> outSellTx

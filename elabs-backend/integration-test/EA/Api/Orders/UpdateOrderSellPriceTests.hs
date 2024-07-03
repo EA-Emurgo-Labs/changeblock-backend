@@ -9,7 +9,7 @@ import EA.Script.Marketplace (MarketplaceInfo (mktInfoIsSell, mktInfoOwner, mktI
 import EA.Test.Helpers qualified as Helpers
 import EA.Wallet (eaGetAddresses)
 import GeniusYield.TxBuilder (addressToPubKeyHashIO)
-import GeniusYield.Types (valueFromLovelace)
+import GeniusYield.Types (paymentKeyHashFromApi, pubKeyHashToApi, valueFromLovelace)
 import Network.HTTP.Types (methodPost)
 import Setup (EACtx (..), checkResponseTxConfirmed, sendFundsToAddress, server, withEaCtx)
 import Test.Tasty (TestTree, testGroup)
@@ -28,20 +28,21 @@ tests eaCtx =
               pure $ head $ NE.fromList addrs
 
             ownerPubkeyHash <- addressToPubKeyHashIO ownerAddr
+            let ownerPaymentKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi ownerPubkeyHash
 
             -- Sending 100 ADA to the owner
             void $ sendFundsToAddress ownerAddr (valueFromLovelace 100_000_000) eaCtxCtx
 
             utxoRef <- runEAApp eaCtxEnv $ do
               mInfos <- eaMarketplaceInfos eaCtxMarketplaceParams
-              sellInfo <- eaLiftMaybe "No sell order found" $ find (\mi -> mktInfoIsSell mi == M_SELL && mktInfoOwner mi == ownerPubkeyHash) mInfos
+              sellInfo <- eaLiftMaybe "No sell order found" $ find (\mi -> mktInfoIsSell mi == M_SELL && mktInfoOwner mi == ownerPaymentKeyHash) mInfos
 
               pure $ mktInfoTxOutRef sellInfo
 
             -- Wait for the transaction to be confirmed for Orders
             -- gyAwaitTxConfirmed (ctxProviders eaCtxCtx) (GYAwaitTxParameters 5 5_000_000 1) (fst $ txOutRefToTuple utxoRef)
 
-            let jsonData = Aeson.encode $ OrderUpdateRequest ownerPubkeyHash 400 utxoRef
+            let jsonData = Aeson.encode $ OrderUpdateRequest ownerPaymentKeyHash 400 utxoRef
 
             -- Sending some fund to the buyer
             step "Sending POST request to /api/v0/orders/update-sale-price"

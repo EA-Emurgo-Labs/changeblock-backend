@@ -3,7 +3,7 @@ module EA.CommonException (CommonException (..)) where
 import Data.Text qualified as T
 import EA.Api.Types (UserId (..))
 import GeniusYield.HTTP.Errors (GYApiError (..), IsGYApiError (toApiError))
-import GeniusYield.Types (GYAddress, GYPubKeyHash, GYTxOutRef)
+import GeniusYield.Types (GYAddress, GYPaymentKeyHash, GYTxOutRef)
 import Network.HTTP.Types (status400)
 
 data CommonException
@@ -12,7 +12,7 @@ data CommonException
   | EaInvalidTxRef {cmnExpEaTxRef :: GYTxOutRef}
   | EaNoCollateral
   | EaInvalidAddres {cmnExpEaAddress :: GYAddress}
-  | EaCannotDecodeAddress {cmnExpEaPubKey :: GYPubKeyHash}
+  | EaCannotDecodeAddress {cmnExpEaPubKey :: GYPaymentKeyHash}
   | EaInvalidUserAddress {cmnExpEaUserId :: UserId}
   | EaCustomError {eaCustomErrorCode :: T.Text, eaCustomErrorMsg :: T.Text}
   deriving stock (Show)

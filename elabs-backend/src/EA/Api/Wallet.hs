@@ -59,7 +59,7 @@ handleWalletBalanceApi userid = do
       owner <- liftIO $ addressToPubKeyHashIO addr
       eaGetAddressValue' [addr, mktPlaceAddr] $ \u@(utxo, _) ->
         if utxoAddress utxo == mktPlaceAddr
-          then handleMarketplaceUtxoValue owner u
+          then handleMarketplaceUtxoValue (paymentKeyHashFromApi $ pubKeyHashToApi owner) u
           else utxoValue utxo
 
   adaPrice <- liftIO getAdaPrice
@@ -72,7 +72,7 @@ handleWalletBalanceApi userid = do
       let adaAmt = fst $ valueSplitAda value
        in Just $ (fromIntegral adaAmt / 1000000) * adaPrice
 
-handleMarketplaceUtxoValue :: GYPubKeyHash -> (GYUTxO, Maybe GYDatum) -> GYValue
+handleMarketplaceUtxoValue :: GYPaymentKeyHash -> (GYUTxO, Maybe GYDatum) -> GYValue
 handleMarketplaceUtxoValue owner utxoWithDatum@(utxo, _) =
   case utxoDatumPure @MarketplaceDatum utxoWithDatum of
     Left _ -> valueFromList []

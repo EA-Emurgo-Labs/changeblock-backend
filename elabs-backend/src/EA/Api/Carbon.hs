@@ -50,6 +50,8 @@ import GeniusYield.TxBuilder (
 import GeniusYield.Types (
   GYAssetClass (GYToken),
   mintingPolicyId,
+  paymentKeyHashFromApi,
+  pubKeyHashToApi,
   unsafeTokenNameFromHex,
   validatorHash,
  )
@@ -185,8 +187,8 @@ handleCarbonApi multipartData = do
         userOref
         marketplaceAddress
         userAddr
-        owner
-        issuer
+        (paymentKeyHashFromApi $ pubKeyHashToApi owner)
+        (paymentKeyHashFromApi $ pubKeyHashToApi issuer)
         tokenName
         (toInteger $ sell request)
         (toInteger $ amount request)

@@ -59,6 +59,7 @@ import GeniusYield.HTTP.Errors (IsGYApiError)
 import GeniusYield.TxBuilder (GYTxMonadException, MonadError (catchError, throwError), adaOnlyUTxOPure, addressToPubKeyHashIO, throwAppError, utxoDatumPure)
 import GeniusYield.Types
 import Internal.AdaPrice (getAdaPrice)
+import Internal.Constants
 import Internal.Wallet (RootKey, readRootKey)
 import Internal.Wallet.DB.Sql (createAccount, runAutoMigration)
 import Ply (readTypedScript)
@@ -99,10 +100,10 @@ data EAAppEnv = EAAppEnv
   , eaAppEnvBlockfrostIpfsProjectId :: !String
   , eaAppEnvOracleRefInputUtxo :: !(Maybe OracleInfo)
   , eaAppEnvMarketplaceRefScriptUtxo :: !(Maybe GYTxOutRef)
-  , eaAppEnvMarketplaceEscrowPubKeyHash :: !GYPubKeyHash
-  , eaAppEnvMarketplaceBackdoorPubKeyHash :: !GYPubKeyHash
+  , eaAppEnvMarketplaceEscrowPubKeyHash :: !GYPaymentKeyHash
+  , eaAppEnvMarketplaceBackdoorPubKeyHash :: !GYPaymentKeyHash
   , eaAppEnvMarketplaceVersion :: !GYTokenName
-  , eaAppEnvOracleOperatorPubKeyHash :: !GYPubKeyHash
+  , eaAppEnvOracleOperatorPubKeyHash :: !GYPaymentKeyHash
   , eaAppEnvOracleNftMintingPolicyId :: !(Maybe GYMintingPolicyId)
   , eaAppEnvOracleNftTokenName :: !(Maybe GYTokenName)
   }
@@ -355,9 +356,9 @@ initEAApp conf providers rootKeyPath dbPoolSize = do
       oracleRefInputUtxo
 
   -- Oracle Operator and Escrow PubkeyHash
-  operatorPubkeyHash <- addressToPubKeyHashIO $ oracleOperatorAddress (cfgNetworkId conf)
-  escrowPubkeyHash <- addressToPubKeyHashIO $ escrowAddress (cfgNetworkId conf)
-  backdoorPubkeyHash <- backdoorPubkeyHashIO $ cfgNetworkId conf
+  escrowPubkeyHash <- addressToPubKeyHashIO $ constEscrowAddress (cfgNetworkId conf)
+  operatorPubkeyHash <- addressToPubKeyHashIO $ constOracleOperatorAddress (cfgNetworkId conf)
+  backdoorPubkeyHash <- addressToPubKeyHashIO $ constBackdoorAddress $ cfgNetworkId conf
 
   -- Get Marketplace Utxo for reference script
   marketplaceRefScriptUtxo <-
@@ -375,29 +376,17 @@ initEAApp conf providers rootKeyPath dbPoolSize = do
       , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
       , eaAppEnvOracleRefInputUtxo = oracleRefInputUtxo
       , eaAppEnvMarketplaceRefScriptUtxo = utxoRef <$> marketplaceRefScriptUtxo
-      , eaAppEnvMarketplaceBackdoorPubKeyHash = backdoorPubkeyHash
-      , eaAppEnvOracleOperatorPubKeyHash = operatorPubkeyHash
+      , eaAppEnvMarketplaceBackdoorPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi backdoorPubkeyHash
+      , eaAppEnvOracleOperatorPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi operatorPubkeyHash
       , eaAppEnvOracleNftMintingPolicyId = oracleNftPolicyId
       , eaAppEnvOracleNftTokenName = oracleNftTokenName
-      , eaAppEnvMarketplaceEscrowPubKeyHash = escrowPubkeyHash
+      , eaAppEnvMarketplaceEscrowPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
       , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "76302e302e33" -- v0.0.3
       }
   where
     oracleNftPolicyIdAndTokenName :: Maybe GYAssetClass -> (Maybe GYMintingPolicyId, Maybe GYTokenName)
     oracleNftPolicyIdAndTokenName (Just (GYToken policyId tokename)) = (Just policyId, Just tokename)
     oracleNftPolicyIdAndTokenName _ = (Nothing, Nothing)
-
-    -- TODO: Use valid Escrow,  oracle Operator  address & backdoor
-    escrowAddress :: GYNetworkId -> GYAddress
-    escrowAddress _ = unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
-
-    oracleOperatorAddress :: GYNetworkId -> GYAddress
-    oracleOperatorAddress _ = unsafeAddressFromText "addr_test1qruxukp4fdncrcnxds6ze2afcufs8w4a6m02a0u7yucppwfx23xw3uj9gkatk450ac7hec80ujfyvk3c97f7n8eljjrq74zl3e"
-
-    backdoorPubkeyHashIO :: GYNetworkId -> IO GYPubKeyHash
-    backdoorPubkeyHashIO =
-      addressToPubKeyHashIO
-        . escrowAddress
 
 eaMarketplaceAddress :: EAApp GYAddress
 eaMarketplaceAddress = do
