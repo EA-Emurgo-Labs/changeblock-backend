@@ -244,7 +244,7 @@ handleOrderBuy OrderBuyRequest {..} = withMarketplaceApiCtx $ \mCtx@MarketplaceA
       when (buyAmount > fromInteger mktInfoAmount) $ Left $ OrderAmountExceeds mInfo (toInteger buyAmount)
 
     isPartial :: MarketplaceInfo -> Bool
-    isPartial MarketplaceInfo {..} = buyAmount < fromInteger mktInfoAmount
+    isPartial MarketplaceInfo {..} = buyAmount /= fromInteger mktInfoAmount
 
 handleOrderCancel :: OrderCancelRequest -> EAApp SubmitTxResponse
 handleOrderCancel OrderCancelRequest {..} = withMarketplaceApiCtx $ \mCtx@MarketplaceApiCtx {..} -> do
