@@ -65,6 +65,7 @@ import EA.Api.Order.Exception (OrderApiException (..))
 import EA.CommonException (CommonException (..))
 
 import Data.Aeson qualified as Aeson
+import Data.Text qualified as T
 
 --------------------------------------------------------------------------------
 
@@ -94,6 +95,7 @@ type OrderList =
   "orders"
     :> QueryParam "owner" String
     :> QueryParam "orderType" MarketplaceOrderType
+    :> QueryParam "tokenName" String
     :> Get '[JSON] [MarketplaceInfo]
 
 type OrderCreate =
@@ -287,11 +289,18 @@ handleOrderUpdate OrderUpdateRequest {..} = withMarketplaceApiCtx $ \mCtx@Market
       when (updatedPrice == fromInteger mktInfoAmount) $ Left $ SameOrderPrice mInfo (toInteger updatedPrice)
       when (mktInfoIsSell /= M_SELL) $ Left $ NonSellOrderPriceUpdate mInfo
 
-handleListOrders :: Maybe String -> Maybe MarketplaceOrderType -> EAApp [MarketplaceInfo]
-handleListOrders mOwnerPubkeyHash orderType = withMarketplaceApiCtx $ \MarketplaceApiCtx {..} -> do
+handleListOrders :: Maybe String -> Maybe MarketplaceOrderType -> Maybe String -> EAApp [MarketplaceInfo]
+handleListOrders mOwnerPubkeyHash orderType mCarbontokenName = withMarketplaceApiCtx $ \MarketplaceApiCtx {..} -> do
   mInfos <- asks eaMarketplaceInfos mktCtxParams
-  return $ filter (\m -> filterByOwner m && filterByType m) mInfos
+  return $ filter (\m -> filterByOwner m && filterByType m && filterByCarbonTknName m) mInfos
   where
+    parseTokenName :: Maybe String -> Maybe GYTokenName
+    parseTokenName Nothing = Nothing
+    parseTokenName (Just tokenName) =
+      case tokenNameFromHex $ T.pack tokenName of
+        Left _ -> Nothing
+        Right v -> Just v
+
     filterByOwner :: MarketplaceInfo -> Bool
     filterByOwner MarketplaceInfo {..} =
       let parsedPubKeyHash = maybe (Left "") (Aeson.eitherDecode . Aeson.encode) mOwnerPubkeyHash
@@ -299,3 +308,6 @@ handleListOrders mOwnerPubkeyHash orderType = withMarketplaceApiCtx $ \Marketpla
 
     filterByType :: MarketplaceInfo -> Bool
     filterByType MarketplaceInfo {..} = maybe True (mktInfoIsSell ==) orderType
+
+    filterByCarbonTknName :: MarketplaceInfo -> Bool
+    filterByCarbonTknName MarketplaceInfo {..} = maybe True (== mktInfoCarbonAssetName) (parseTokenName mCarbontokenName)
