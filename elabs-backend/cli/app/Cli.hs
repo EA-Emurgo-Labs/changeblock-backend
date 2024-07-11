@@ -1,8 +1,8 @@
-import EA.CLI.Parser (parseRootCommand)
+import EA.CLI.Parser (parseRootCommand, pref)
 import EA.CLI.Run (runRootCommand)
-import Options.Applicative (execParser, helper, info, progDesc)
+import Options.Applicative (customExecParser)
 
 main :: IO ()
 main = do
-  cmd <- execParser $ info (parseRootCommand <**> helper) $ progDesc "EA CLI"
+  cmd <- customExecParser pref parseRootCommand
   runRootCommand cmd
