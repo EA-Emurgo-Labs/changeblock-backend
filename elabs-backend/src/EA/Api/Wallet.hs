@@ -4,7 +4,7 @@ module EA.Api.Wallet (
   handleWalletBalanceApi,
 ) where
 
-import Servant (Capture, GenericMode ((:-)), Get, HasServer (ServerT), JSON, NamedRoutes, ToServantApi, type (:>))
+import Servant (Capture, GenericMode ((:-)), Get, HasServer (ServerT), JSON, NamedRoutes, QueryParam, ToServantApi, type (:>))
 
 import EA (EAApp, eaGetAddressValue', eaMarketplaceAddress)
 import EA.Api.Types (UserId, WalletResponse (WalletResponse), WalletValueResp (WalletValueResp), walletAddressWithPubKeyHash)
@@ -41,6 +41,7 @@ type WalletBalance =
   "wallet"
     :> Capture "user" UserId
     :> "balance"
+    :> QueryParam "onlyCarbonToken" Bool
     :> Get '[JSON] WalletValueResp
 
 handleWalletAddressApi :: UserId -> EAApp WalletResponse
@@ -48,8 +49,8 @@ handleWalletAddressApi userid = do
   addrs <- eaGetAddresses userid
   return $ WalletResponse (map (walletAddressWithPubKeyHash . fst) addrs) userid
 
-handleWalletBalanceApi :: UserId -> EAApp WalletValueResp
-handleWalletBalanceApi userid = do
+handleWalletBalanceApi :: UserId -> Maybe Bool -> EAApp WalletValueResp
+handleWalletBalanceApi userid mOnlyCarbonToken = do
   userAddrsWithPaymentKey <- eaGetAddresses userid
   let userAddrs = map fst userAddrsWithPaymentKey
   value <- case userAddrs of
@@ -60,13 +61,19 @@ handleWalletBalanceApi userid = do
       eaGetAddressValue' [addr, mktPlaceAddr] $ \u@(utxo, _) ->
         if utxoAddress utxo == mktPlaceAddr
           then handleMarketplaceUtxoValue (paymentKeyHashFromApi $ pubKeyHashToApi owner) u
-          else utxoValue utxo
+          else checkOnlyAdaValue mOnlyCarbonToken $ utxoValue utxo
 
   adaPrice <- liftIO getAdaPrice
   let totalAdaValueUsd = calcTotAdaPrice value =<< adaPrice
 
   return $ WalletValueResp value adaPrice totalAdaValueUsd
   where
+    checkOnlyAdaValue :: Maybe Bool -> GYValue -> GYValue
+    checkOnlyAdaValue (Just True) val =
+      let totAda = valueAssetClass val GYLovelace
+       in valueSingleton GYLovelace totAda
+    checkOnlyAdaValue _ val = val
+
     calcTotAdaPrice :: GYValue -> Double -> Maybe Double
     calcTotAdaPrice value adaPrice =
       let adaAmt = fst $ valueSplitAda value

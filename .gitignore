@@ -45,6 +45,7 @@ wallet.db*
 wallet.test.db*
 root.key
 .env
+.env.testnet
 sample-ipfs-file.txt
 bin
 .db
