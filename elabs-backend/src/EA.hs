@@ -381,7 +381,7 @@ initEAApp conf providers rootKeyPath dbPoolSize = do
       , eaAppEnvOracleNftMintingPolicyId = oracleNftPolicyId
       , eaAppEnvOracleNftTokenName = oracleNftTokenName
       , eaAppEnvMarketplaceEscrowPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
-      , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "76302e302e33" -- v0.0.3
+      , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "302e302e34" -- v0.0.4
       }
   where
     oracleNftPolicyIdAndTokenName :: Maybe GYAssetClass -> (Maybe GYMintingPolicyId, Maybe GYTokenName)

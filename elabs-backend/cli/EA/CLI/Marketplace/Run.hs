@@ -6,7 +6,7 @@ import EA.CLI.Marketplace.Command (MarketplaceCommand (MarketplaceDeployScript, 
 import EA.Script (oracleValidator)
 import EA.Script.Marketplace (MarketplaceInfo (MarketplaceInfo, mktInfoOwner), MarketplaceParams (..))
 import EA.Tx.Changeblock.Marketplace (deployScript, withdrawCarbonToken)
-import EA.Wallet (eaGetCollateralFromInternalWallet, eaGetInternalAddresses, eaGetaddressFromPaymentKeyHash, eaSelectOref)
+import EA.Wallet (eaGetInternalAddresses, eaGetaddressFromPaymentKeyHash, eaSelectOref)
 import GeniusYield.GYConfig (withCfgProviders)
 import GeniusYield.Imports (printf)
 import GeniusYield.TxBuilder (runGYTxMonadNode)
@@ -30,10 +30,7 @@ runMarketplaceCommand (MarketplaceDeployScript (MarketplaceDeployCommand dplMktp
   version <- runEAApp env $ asks eaAppEnvMarketplaceVersion
   networkId <- runEAApp env $ asks eaAppEnvGYNetworkId
 
-  -- Get the collateral address and its signing key.
-  (collateral, colKey) <- runEAApp env $ eaGetCollateralFromInternalWallet >>= eaLiftMaybe "No collateral found"
-
-  (addr, key, _oref) <- runEAApp env $ eaSelectOref internalAddrPairs (\r -> collateral /= Just (r, True)) >>= eaLiftMaybe "No UTxO found"
+  (addr, key, _oref) <- runEAApp env $ eaSelectOref internalAddrPairs (const True) >>= eaLiftMaybe "No UTxO found"
 
   let scripts = eaAppEnvScripts env
       oracleValidatorHash = validatorHash $ oracleValidator (GYToken oracleNftPolicyId oracleNftTknName) (eaAppEnvOracleOperatorPubKeyHash env) scripts
@@ -50,9 +47,11 @@ runMarketplaceCommand (MarketplaceDeployScript (MarketplaceDeployCommand dplMktp
 
   txBody <-
     liftIO $
-      runGYTxMonadNode networkId providers [addr] addr collateral (return skeleton)
+      runGYTxMonadNode networkId providers [addr] addr Nothing (return skeleton)
 
-  gyTxId <- runEAApp env $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
+  print txBody
+
+  gyTxId <- runEAApp env $ eaSubmitTx $ Wallet.signTx txBody [key]
 
   printf "\n \n export MARKETPLACE_REF_SCRIPT_UTXO=%s#0 \n" gyTxId
 
@@ -89,6 +88,7 @@ runMarketplaceCommand (MarketplaceWithdrawScript MarketplaceWithdrawCommand {..}
 
   mInfos <- runEAApp env $ eaMarketplaceInfos marketplaceParams
   mInfosWithAddrs <- mapM (withMktInfoOwnerAddrs env) mInfos
+  print mInfosWithAddrs
 
   let skeleton = withdrawCarbonToken marketplaceParams (unsafeAddressFromText mktWdrOutAddress) (GYToken mktWdrCarbonPolicyId $ unsafeTokenNameFromHex mktWdrCarbonTokenName) scripts (catMaybes mInfosWithAddrs) mktWdrQty
 
