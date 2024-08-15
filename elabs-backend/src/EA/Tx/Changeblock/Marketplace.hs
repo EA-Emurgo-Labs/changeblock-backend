@@ -28,6 +28,15 @@ mkMarketplaceInput validator mRefScript info action =
       , gyTxInWitness = GYTxInWitnessScript witness (datumFromPlutusData $ marketplaceInfoToDatum info) (redeemerFromPlutusData action)
       }
 
+mkEscrowOutput :: GYAddress -> Integer -> Maybe Double -> Integer -> Integer -> GYTxOut 'PlutusV2
+mkEscrowOutput addr oracleRate mFee amt rate =
+  let amt = max oracleRate $ round calcFee
+   in mkGYTxOutNoDatum addr (valueFromLovelace amt)
+  where
+    calcFee = case mFee of
+      Just fee -> fee * fromInteger (amt * rate)
+      Nothing -> 0
+
 mkCarbontokenValue :: MarketplaceInfo -> Integer -> GYValue
 mkCarbontokenValue MarketplaceInfo {..} = valueSingleton (GYToken mktInfoCarbonPolicyId mktInfoCarbonAssetName)
 
@@ -51,7 +60,7 @@ buy nid info@MarketplaceInfo {..} OracleInfo {..} buyerPubKeyHash mMarketplaceRe
   let mktPlaceValidator = marketplaceValidator mktPlaceParams scripts
       escrowAddress = addressFromPaymentKeyHash nid (mktPrmEscrowValidator mktPlaceParams)
       ownerAddress = addressFromPaymentKeyHash nid mktInfoOwner
-
+      fee = Just 0.0215 -- Buy fee is 2.15%
       newDatum =
         MarketplaceDatum
           { mktDtmOwner = paymentKeyHashToPlutus buyerPubKeyHash
@@ -66,7 +75,7 @@ buy nid info@MarketplaceInfo {..} OracleInfo {..} buyerPubKeyHash mMarketplaceRe
         <> mustHaveInput (mkMarketplaceInput mktPlaceValidator mMarketplaceRefScript info Marketplace.BUY)
         <> mustHaveOutput (mkGYTxOutNoDatum ownerAddress (valueFromLovelace (mktInfoSalePrice * mktInfoAmount)))
         <> mustHaveOutput (mkGYTxOut mktInfoAddress (mkCarbontokenValue info mktInfoAmount) (datumFromPlutusData newDatum))
-        <> mustHaveOutput (mkGYTxOutNoDatum escrowAddress (valueFromLovelace orcInfoRate))
+        <> mustHaveOutput (mkEscrowOutput escrowAddress orcInfoRate fee mktInfoAmount mktInfoSalePrice)
         <> mustBeSignedBy buyerPubKeyHash
 
 partialBuy ::
@@ -91,7 +100,7 @@ partialBuy nid info@MarketplaceInfo {..} OracleInfo {..} buyerPubKeyHash amount 
   let mktPlaceValidator = marketplaceValidator mktplaceParams scripts
       escrowAddress = addressFromPaymentKeyHash nid (mktPrmEscrowValidator mktplaceParams)
       ownerAddress = addressFromPaymentKeyHash nid mktInfoOwner
-
+      fee = Just 0.0215 -- Buy fee is 2.15%
       newOwnerDatum =
         MarketplaceDatum
           { mktDtmOwner = paymentKeyHashToPlutus buyerPubKeyHash
@@ -118,7 +127,7 @@ partialBuy nid info@MarketplaceInfo {..} OracleInfo {..} buyerPubKeyHash amount 
         <> mustHaveOutput (mkGYTxOutNoDatum ownerAddress (valueFromLovelace (mktInfoSalePrice * amount)))
         <> mustHaveOutput (mkGYTxOut mktInfoAddress (mkCarbontokenValue info amount) (datumFromPlutusData newOwnerDatum))
         <> mustHaveOutput (mkGYTxOut mktInfoAddress (mkCarbontokenValue info (mktInfoAmount - amount)) (datumFromPlutusData changeMarketplaceDatum))
-        <> mustHaveOutput (mkGYTxOutNoDatum escrowAddress (valueFromLovelace orcInfoRate))
+        <> mustHaveOutput (mkEscrowOutput escrowAddress orcInfoRate fee amount mktInfoSalePrice)
         <> mustBeSignedBy buyerPubKeyHash
 
 sell ::
@@ -149,9 +158,10 @@ sell nid info@MarketplaceInfo {..} OracleInfo {..} mMarketplaceRefScript newSale
           , mktDtmIssuer = paymentKeyHashToPlutus mktInfoIssuer
           , mktDtmIsSell = 1
           }
+      fee = Just 0.0315 -- Sell fee is 3.15%
    in mustHaveRefInput orcInfoUtxoRef
         <> mustHaveInput (mkMarketplaceInput (marketplaceValidator mktplaceParams scripts) mMarketplaceRefScript info (Marketplace.SELL newSalePrice))
-        <> mustHaveOutput (mkGYTxOutNoDatum escrowAddress (valueFromLovelace orcInfoRate))
+        <> mustHaveOutput (mkEscrowOutput escrowAddress orcInfoRate fee mktInfoAmount newSalePrice)
         <> mustHaveOutput (mkGYTxOut mktInfoAddress (mkCarbontokenValue info mktInfoAmount) (datumFromPlutusData sellDatum))
         <> mustBeSignedBy mktInfoOwner
 
@@ -242,6 +252,8 @@ adjustOrders nid info OracleInfo {..} mMarketplaceRefScript newPrice newAmount n
   let escrowAddress = addressFromPaymentKeyHash nid (mktPrmEscrowValidator marketplaceParams)
       mktValidator = marketplaceValidator marketplaceParams scripts
       oldAmt = mktInfoAmount info - newAmount
+      -- Fee is 3.15% for sell and 2.15% for buy
+      fee = if newSaleInfo == Marketplace.M_SELL then Just 0.0315 else Just 0.0215
       oldDatum =
         MarketplaceDatum
           { mktDtmOwner = paymentKeyHashToPlutus $ mktInfoOwner info
@@ -267,7 +279,7 @@ adjustOrders nid info OracleInfo {..} mMarketplaceRefScript newPrice newAmount n
         <> mustHaveInput (mkMarketplaceInput mktValidator mMarketplaceRefScript info Marketplace.MERGE)
         <> mustHaveOutput (mkGYTxOut (mktInfoAddress info) (mkCarbontokenValue info oldAmt) (datumFromPlutusData oldDatum))
         <> mustHaveOutput (mkGYTxOut (mktInfoAddress info) (mkCarbontokenValue info newAmount) (datumFromPlutusData newDatum))
-        <> mustHaveOutput (mkGYTxOutNoDatum escrowAddress (valueFromLovelace orcInfoRate))
+        <> mustHaveOutput (mkEscrowOutput escrowAddress orcInfoRate fee newAmount newPrice)
         <> mustBeSignedBy (mktInfoOwner info)
 
 deployScript :: GYAddress -> MarketplaceParams -> Scripts -> GYTxSkeleton 'PlutusV2
