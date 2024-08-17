@@ -288,30 +288,29 @@ deployScript toAddr marketplaceParams scripts =
       out = GYTxOut toAddr (valueFromLovelace 100) Nothing (Just $ validatorToScript mktValidator)
    in mustHaveOutput out
 
-withdrawCarbonToken :: MarketplaceParams -> GYAddress -> GYAssetClass -> Scripts -> [(GYAddress, MarketplaceInfo)] -> Natural -> GYTxSkeleton 'PlutusV2
+withdrawCarbonToken :: MarketplaceParams -> GYAddress -> GYAssetClass -> Scripts -> [MarketplaceInfo] -> Natural -> GYTxSkeleton 'PlutusV2
 withdrawCarbonToken mktplaceParams tokenRecvAddr carbonAsset scripts orderInfos withdrawAmt =
-  let validOrders = sortOn (\(_, m) -> mktInfoSalePrice m) $ filter canPickMktInfo orderInfos
+  let validOrders = sortOn mktInfoSalePrice $ filter canPickMktInfo orderInfos
    in foldTx backdoorTx withdrawAmt validOrders <> withdrawTx
   where
     backdoorTx = mustBeSignedBy (mktPrmBackdoor mktplaceParams)
     withdrawTx = mustHaveOutput $ mkGYTxOutNoDatum tokenRecvAddr $ valueSingleton carbonAsset (toInteger withdrawAmt)
     mktPlaceValidator = marketplaceValidator mktplaceParams scripts
 
-    foldTx :: GYTxSkeleton 'PlutusV2 -> Natural -> [(GYAddress, MarketplaceInfo)] -> GYTxSkeleton 'PlutusV2
+    foldTx :: GYTxSkeleton 'PlutusV2 -> Natural -> [MarketplaceInfo] -> GYTxSkeleton 'PlutusV2
     foldTx tx 0 _ = tx
-    foldTx tx amt ((ownerAddr, mInfo@MarketplaceInfo {..}) : infos) =
+    foldTx tx amt (mInfo@MarketplaceInfo {..} : infos) =
       let usedAmt = min amt $ fromInteger mktInfoAmount
-          finalTx = tx <> prepareTx mInfo ownerAddr (toInteger usedAmt)
+          finalTx = tx <> prepareTx mInfo (toInteger usedAmt)
        in foldTx finalTx (amt - usedAmt) infos
     foldTx tx _ [] = tx
 
-    canPickMktInfo :: (GYAddress, MarketplaceInfo) -> Bool
-    canPickMktInfo (_, MarketplaceInfo {..}) = mktInfoIsSell == Marketplace.M_SELL && carbonAsset == GYToken mktInfoCarbonPolicyId mktInfoCarbonAssetName
+    canPickMktInfo :: MarketplaceInfo -> Bool
+    canPickMktInfo MarketplaceInfo {..} = mktInfoIsSell == Marketplace.M_SELL && carbonAsset == GYToken mktInfoCarbonPolicyId mktInfoCarbonAssetName
 
-    prepareTx :: MarketplaceInfo -> GYAddress -> Integer -> GYTxSkeleton 'PlutusV2
-    prepareTx mktInfo@MarketplaceInfo {..} ownerAddress usedAmt =
+    prepareTx :: MarketplaceInfo -> Integer -> GYTxSkeleton 'PlutusV2
+    prepareTx mktInfo@MarketplaceInfo {..} usedAmt =
       let changeAmt = mktInfoAmount - usedAmt
-          outSellTx = mustHaveOutput $ mkGYTxOutNoDatum ownerAddress (valueFromLovelace (mktInfoSalePrice * usedAmt))
           inTx = mustHaveInput $ mkMarketplaceInput mktPlaceValidator Nothing mktInfo Marketplace.MERGE
           newDatum =
             MarketplaceDatum
@@ -324,5 +323,5 @@ withdrawCarbonToken mktplaceParams tokenRecvAddr carbonAsset scripts orderInfos 
               , mktDtmIsSell = 1
               }
        in if changeAmt > 0
-            then inTx <> outSellTx <> mustHaveOutput (mkGYTxOut mktInfoAddress (mkCarbontokenValue mktInfo changeAmt) (datumFromPlutusData newDatum))
-            else inTx <> outSellTx
+            then inTx <> mustHaveOutput (mkGYTxOut mktInfoAddress (mkCarbontokenValue mktInfo changeAmt) (datumFromPlutusData newDatum))
+            else inTx

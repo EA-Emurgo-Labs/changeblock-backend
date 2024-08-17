@@ -61,6 +61,7 @@ runMarketplaceCommand (MarketplaceWithdrawScript MarketplaceWithdrawCommand {..}
   coreCfg <- fetchCoreCfg
   providers <- withCfgProviders coreCfg "cli" return
   rootKeyFilePath <- fetchRootKeyFilePath
+  -- _sellerPubKeyHash <- either fail return $ Aeson.eitherDecode @GYPaymentKeyHash mktWdrSellerPubKey
 
   env <- initEAApp coreCfg providers rootKeyFilePath 1
   oracleNftPolicyId <- runEAApp env $ asks eaAppEnvOracleNftMintingPolicyId >>= eaLiftMaybe "No Oracle NFT Policy Id"
@@ -87,10 +88,8 @@ runMarketplaceCommand (MarketplaceWithdrawScript MarketplaceWithdrawCommand {..}
       backdoorAddr = addressFromPaymentKeyHash networkId backdoorPubkeyHash
 
   mInfos <- runEAApp env $ eaMarketplaceInfos marketplaceParams
-  mInfosWithAddrs <- mapM (withMktInfoOwnerAddrs env) mInfos
-  print mInfosWithAddrs
 
-  let skeleton = withdrawCarbonToken marketplaceParams (unsafeAddressFromText mktWdrOutAddress) (GYToken mktWdrCarbonPolicyId $ unsafeTokenNameFromHex mktWdrCarbonTokenName) scripts (catMaybes mInfosWithAddrs) mktWdrQty
+  let skeleton = withdrawCarbonToken marketplaceParams mktWdrSellerPubKey (unsafeAddressFromText mktWdrOutAddress) (GYToken mktWdrCarbonPolicyId $ unsafeTokenNameFromHex mktWdrCarbonTokenName) scripts mInfos mktWdrQty
 
   print skeleton
 
@@ -101,8 +100,3 @@ runMarketplaceCommand (MarketplaceWithdrawScript MarketplaceWithdrawCommand {..}
   gyTxId <- runEAApp env $ eaSubmitTx $ signGYTxBody txBody [backdoorSkey]
 
   printf "\n \n Withdraw Transaction submitted with TxId: %s  \n" gyTxId
-  where
-    withMktInfoOwnerAddrs :: EAAppEnv -> MarketplaceInfo -> IO (Maybe (GYAddress, MarketplaceInfo))
-    withMktInfoOwnerAddrs env minfo@MarketplaceInfo {..} = do
-      ownerAddr <- runEAApp env $ eaGetaddressFromPaymentKeyHash mktInfoOwner
-      return $ (\(addr, _) -> Just (addr, minfo)) =<< ownerAddr

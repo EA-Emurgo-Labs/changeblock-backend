@@ -5,7 +5,7 @@ module EA.CLI.Marketplace.Command (
 ) where
 
 import Data.Text qualified as T
-import GeniusYield.Types (GYMintingPolicyId)
+import GeniusYield.Types (GYMintingPolicyId, GYPaymentKeyHash)
 
 data MarketplaceCommand
   = MarketplaceDeployScript MarketplaceDeployCommand
@@ -21,4 +21,5 @@ data MarketplaceWithdrawCommand = MarketplaceWithdrawCommand
   , mktWdrOutAddress :: !T.Text
   , mktWdrQty :: !Natural
   , mktWdrBackdoorKeyPath :: !FilePath
+  , mktWdrSellerPubKey :: !GYPaymentKeyHash
   }

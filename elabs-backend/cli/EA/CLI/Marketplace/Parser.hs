@@ -74,3 +74,8 @@ pMarketplaceWithdrawCommand =
           <> metavar "BACKDOOR_KEY_PATH"
           <> help "Path to backdoor key"
       )
+    <*> strOption
+      ( long "token-owner"
+          <> metavar "CARBON_TOKEN_OWNER"
+          <> help "Carbon token owner"
+      )
