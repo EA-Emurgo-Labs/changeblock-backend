@@ -288,8 +288,8 @@ deployScript toAddr marketplaceParams scripts =
       out = GYTxOut toAddr (valueFromLovelace 100) Nothing (Just $ validatorToScript mktValidator)
    in mustHaveOutput out
 
-withdrawCarbonToken :: MarketplaceParams -> GYAddress -> GYAssetClass -> Scripts -> [MarketplaceInfo] -> Natural -> GYTxSkeleton 'PlutusV2
-withdrawCarbonToken mktplaceParams tokenRecvAddr carbonAsset scripts orderInfos withdrawAmt =
+withdrawCarbonToken :: MarketplaceParams -> GYPaymentKeyHash -> GYAddress -> GYAssetClass -> Scripts -> [MarketplaceInfo] -> Natural -> GYTxSkeleton 'PlutusV2
+withdrawCarbonToken mktplaceParams sellerPubKey tokenRecvAddr carbonAsset scripts orderInfos withdrawAmt =
   let validOrders = sortOn mktInfoSalePrice $ filter canPickMktInfo orderInfos
    in foldTx backdoorTx withdrawAmt validOrders <> withdrawTx
   where
@@ -306,7 +306,7 @@ withdrawCarbonToken mktplaceParams tokenRecvAddr carbonAsset scripts orderInfos 
     foldTx tx _ [] = tx
 
     canPickMktInfo :: MarketplaceInfo -> Bool
-    canPickMktInfo MarketplaceInfo {..} = mktInfoIsSell == Marketplace.M_SELL && carbonAsset == GYToken mktInfoCarbonPolicyId mktInfoCarbonAssetName
+    canPickMktInfo MarketplaceInfo {..} = mktInfoIsSell == Marketplace.M_SELL && carbonAsset == GYToken mktInfoCarbonPolicyId mktInfoCarbonAssetName && mktInfoOwner == sellerPubKey
 
     prepareTx :: MarketplaceInfo -> Integer -> GYTxSkeleton 'PlutusV2
     prepareTx mktInfo@MarketplaceInfo {..} usedAmt =
