@@ -43,9 +43,10 @@ logs-privnet
 kupo
 wallet.db*
 wallet.test.db*
-root.key
+*.key
 .env
 .env.testnet
+.env.local
 sample-ipfs-file.txt
 bin
 .db

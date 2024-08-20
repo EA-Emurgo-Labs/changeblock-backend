@@ -21,7 +21,7 @@ cabal run elabs-backend:cli -- auth create --token TEST --notes Test
 
 To withdraw carbon token: 
 ```bash
-cabal run elabs-backend:cli  -- marketplace withdraw --carbon-policy-id <carbon policy ID>  --carbon-token-name <carbon token name> --out-address <receiver address> --qty <amount to withdraw> --backdoor-key-path /path/to/backdoor.skey
+cabal run elabs-backend:cli  -- marketplace withdraw --carbon-policy-id <carbon policy ID>  --carbon-token-name <carbon token name> --out-address <receiver address> --qty <amount to withdraw> --backdoor-key-path /path/to/backdoor.skey --token-owner <carbon token owner pubkey hash>
 ```
 
 ## run api
