@@ -4,13 +4,13 @@ import EA (EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvMarketplaceBackdoorPubKeyHash,
 import EA.CLI.Helper (fetchCoreCfg, fetchRootKeyFilePath)
 import EA.CLI.Marketplace.Command (MarketplaceCommand (MarketplaceDeployScript, MarketplaceWithdrawScript), MarketplaceDeployCommand (MarketplaceDeployCommand), MarketplaceWithdrawCommand (..))
 import EA.Script (oracleValidator)
-import EA.Script.Marketplace (MarketplaceInfo (MarketplaceInfo, mktInfoOwner), MarketplaceParams (..))
+import EA.Script.Marketplace (MarketplaceParams (..))
 import EA.Tx.Changeblock.Marketplace (deployScript, withdrawCarbonToken)
-import EA.Wallet (eaGetInternalAddresses, eaGetaddressFromPaymentKeyHash, eaSelectOref)
+import EA.Wallet (eaGetInternalAddresses, eaSelectOref)
 import GeniusYield.GYConfig (withCfgProviders)
 import GeniusYield.Imports (printf)
 import GeniusYield.TxBuilder (runGYTxMonadNode)
-import GeniusYield.Types (GYAddress, GYAssetClass (GYToken), addressFromPaymentKeyHash, readSomeSigningKey, signGYTxBody, unsafeAddressFromText, unsafeTokenNameFromHex, validatorHash)
+import GeniusYield.Types (GYAssetClass (GYToken), addressFromPaymentKeyHash, readSomeSigningKey, signGYTxBody, unsafeAddressFromText, unsafeTokenNameFromHex, validatorHash)
 import Internal.Wallet qualified as Wallet
 
 runMarketplaceCommand :: MarketplaceCommand -> IO ()
