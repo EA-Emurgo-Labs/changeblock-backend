@@ -28,22 +28,21 @@ import Cardano.Address.Derivation (
 import Cardano.Address.Style.Shelley (Shelley, getKey, liftXPrv)
 import Cardano.Address.Style.Shelley qualified as S
 import Cardano.Api.Shelley (
-  ShelleyWitnessSigningKey (WitnessPaymentExtendedKey),
   SigningKey (PaymentExtendedSigningKey),
  )
-import Cardano.Api.Shelley qualified as Api
 import Cardano.Mnemonic (SomeMnemonic)
 import Data.ByteString qualified as BS
 import Data.Tagged (Tagged)
 import GHC.Show (Show (show))
 import GeniusYield.Types (
   GYAddress,
+  GYExtendedPaymentSigningKey,
   GYNetworkId (GYMainnet),
   GYTx,
   GYTxBody,
   addressFromTextMaybe,
-  txBodyToApi,
-  txFromApi,
+  extendedPaymentSigningKeyFromApi,
+  signGYTxBody,
  )
 
 --------------------------------------------------------------------------------
@@ -116,15 +115,14 @@ instance Show PaymentKey where
   show _ = "PaymentKey"
 
 -- internal function, dont export
-toShelleyWitnessSigningKey :: PaymentKey -> ShelleyWitnessSigningKey
+toShelleyWitnessSigningKey :: PaymentKey -> GYExtendedPaymentSigningKey
 toShelleyWitnessSigningKey (PaymentKey key) =
-  WitnessPaymentExtendedKey (PaymentExtendedSigningKey (getKey key))
+  extendedPaymentSigningKeyFromApi $ PaymentExtendedSigningKey (getKey key)
 
 signTx :: GYTxBody -> [PaymentKey] -> GYTx
 signTx txBody skeys =
-  txFromApi $
-    Api.signShelleyTransaction (txBodyToApi txBody) $
-      map toShelleyWitnessSigningKey skeys
+  let witnesss = map toShelleyWitnessSigningKey skeys
+   in signGYTxBody txBody witnesss
 
 --------------------------------------------------------------------------------
 -- Root key

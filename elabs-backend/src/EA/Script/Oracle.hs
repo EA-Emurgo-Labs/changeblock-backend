@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module EA.Script.Oracle (OracleDatum (..), OracleScriptParams (..), OracleAction (..), OracleInfo (..), oracleDatumToInfo, utxoToOracleInfo, oracleNftAsset) where
 

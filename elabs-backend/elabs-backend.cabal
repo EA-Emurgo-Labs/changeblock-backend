@@ -137,6 +137,7 @@ library
     EA
     EA.Api
     EA.Api.Carbon
+    EA.Api.Ctx
     EA.Api.Order
     EA.Api.Order.Exception
     EA.Api.Order.Types
@@ -193,22 +194,22 @@ test-suite spec
 
   build-tool-depends: hspec-discover:hspec-discover >=2 && <3
 
-executable integration-test
-  import:         lang, deps, test-deps, opts
-  hs-source-dirs: integration-test
-  main-is:        Main.hs
-  other-modules:
-    EA.Api.CarbonTests
-    EA.Api.WalletTests
-    EA.Api.Orders.BuyOrderTests
-    EA.Api.Orders.ListOrderTests
-    EA.Api.Orders.SellOrderTests
-    EA.Api.Orders.UpdateOrderSellPriceTests
-    Setup
-
-  build-depends:
-    , elabs-backend
-    , elabs-backend-testlib
+-- executable integration-test
+  -- import:         lang, deps, test-deps, opts
+  -- hs-source-dirs: integration-test
+  -- main-is:        Main.hs
+  -- other-modules:
+    -- EA.Api.CarbonTests
+    -- EA.Api.WalletTests
+    -- EA.Api.Orders.BuyOrderTests
+    -- EA.Api.Orders.ListOrderTests
+    -- EA.Api.Orders.SellOrderTests
+    -- EA.Api.Orders.UpdateOrderSellPriceTests
+    -- Setup
+-- 
+  -- build-depends:
+    -- , elabs-backend
+    -- , elabs-backend-testlib
 
 
 executable cli

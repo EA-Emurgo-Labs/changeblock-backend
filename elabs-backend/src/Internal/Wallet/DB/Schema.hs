@@ -15,19 +15,6 @@ module Internal.Wallet.DB.Schema (
 import Data.Time (UTCTime)
 import Database.Persist (
   EntityField,
-  FieldDef (
-    fieldAttrs,
-    fieldCascade,
-    fieldComments,
-    fieldDB,
-    fieldGenerated,
-    fieldHaskell,
-    fieldIsImplicitIdColumn,
-    fieldReference,
-    fieldSqlType,
-    fieldStrict,
-    fieldType
-  ),
  )
 import Database.Persist.Sql (
   BackendKey (SqlBackendKey),

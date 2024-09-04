@@ -3,6 +3,8 @@ module EA.Api.Order (
   handleOrderApi,
 ) where
 
+import EA.Api.Ctx (runSkeletonF)
+
 import EA (
   EAApp,
   EAAppEnv (..),
@@ -13,7 +15,12 @@ import EA (
   eaMarketplaceInfos,
   eaSubmitTx,
  )
-import EA.Api.Order.Types
+import EA.Api.Order.Types (
+  OrderBuyRequest (..),
+  OrderCancelRequest (..),
+  OrderSellRequest (..),
+  OrderUpdateRequest (..),
+ )
 import EA.Api.Types (
   SubmitTxResponse,
   txBodySubmitTxResponse,
@@ -42,7 +49,7 @@ import EA.Wallet (
   eaGetCollateralFromInternalWallet,
   eaGetaddressFromPaymentKeyHash,
  )
-import GeniusYield.TxBuilder (GYTxSkeleton, runGYTxMonadNode)
+import GeniusYield.TxBuilder (GYTxSkeleton)
 import GeniusYield.Types
 import Internal.Wallet qualified as Wallet
 import Servant (
@@ -55,11 +62,9 @@ import Servant (
   Post,
   QueryParam,
   ReqBody,
-  ToServantApi,
   err400,
   type (:>),
  )
-import Servant.Swagger (HasSwagger (toSwagger))
 
 import EA.Api.Order.Exception (OrderApiException (..))
 import EA.CommonException (CommonException (..))
@@ -77,9 +82,6 @@ data OrderApi mode = OrderApi
   , orderUpdate :: mode :- OrderUpdate
   }
   deriving stock (Generic)
-
-instance HasSwagger (NamedRoutes OrderApi) where
-  toSwagger _ = toSwagger (Proxy :: Proxy (ToServantApi OrderApi))
 
 handleOrderApi :: ServerT (NamedRoutes OrderApi) EAApp
 handleOrderApi =
@@ -190,7 +192,7 @@ withMarketplaceApiCtx f = do
 
 handleTx :: MarketplaceApiCtx -> GYAddress -> Wallet.PaymentKey -> GYTxSkeleton 'PlutusV2 -> EAApp SubmitTxResponse
 handleTx MarketplaceApiCtx {..} addr addrKey tx = do
-  txBody <- liftIO $ runGYTxMonadNode mktCtxNetworkId mktCtxProviders [addr] addr (fst mktCtxCollateral) (return tx)
+  txBody <- liftIO $ runSkeletonF mktCtxNetworkId mktCtxProviders [addr] addr (fst mktCtxCollateral) (return tx)
   void $ eaSubmitTx $ Wallet.signTx txBody [snd mktCtxCollateral, addrKey]
   return $ txBodySubmitTxResponse txBody
 

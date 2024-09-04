@@ -35,7 +35,7 @@ let
 in
 {
   # name = "project-name";
-  compiler-nix-name = "ghc928"; # Version of GHC to use
+  compiler-nix-name = "ghc965"; # Version of GHC to use
 
   # Cross compilation support:
   # crossPlatforms = p: pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 ([
@@ -48,9 +48,9 @@ in
   # Tools to include in the development shell
   shell = {
     tools = {
-      cabal = "3.10.1.0";
-      hlint = "3.6.1";
-      haskell-language-server = { version = "2.0.0.0"; index-state = "2023-06-05T06:39:32Z"; };
+      cabal = {};
+      hlint = "3.8";
+      haskell-language-server = "2.9.0.0";
     };
 
     buildInputs = with pkgs; [
@@ -59,16 +59,21 @@ in
       haskellPackages.fourmolu
       nixpkgs-fmt
       gnumake
-      postgresql_14
       startDb
       awsebcli
       awscli
+      postgresql_14
     ];
 
+
+    nativeBuildInputs = with pkgs; [
+      pkg-config
+    ];
 
 
     # Start and terminate postgresql gracefully
     shellHook = ''
+      export PG_CONFIG=$(which pg_config)
       mkdir -p $PWD/.db
       export PGDATA=$PWD/.db
 

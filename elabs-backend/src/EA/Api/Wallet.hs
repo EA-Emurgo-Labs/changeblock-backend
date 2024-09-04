@@ -4,7 +4,7 @@ module EA.Api.Wallet (
   handleWalletBalanceApi,
 ) where
 
-import Servant (Capture, GenericMode ((:-)), Get, HasServer (ServerT), JSON, NamedRoutes, QueryParam, ToServantApi, type (:>))
+import Servant (Capture, GenericMode ((:-)), Get, HasServer (ServerT), JSON, NamedRoutes, QueryParam, type (:>))
 
 import EA (EAApp, eaGetAddressValue', eaMarketplaceAddress)
 import EA.Api.Types (UserId, WalletResponse (WalletResponse), WalletValueResp (WalletValueResp), walletAddressWithPubKeyHash)
@@ -13,7 +13,6 @@ import EA.Wallet (eaGetAddresses)
 import GeniusYield.TxBuilder (addressToPubKeyHashIO, utxoDatumPure)
 import GeniusYield.Types
 import Internal.AdaPrice (getAdaPrice)
-import Servant.Swagger (HasSwagger (toSwagger))
 
 --------------------------------------------------------------------------------
 data WalletApi mode = WalletApi
@@ -21,9 +20,6 @@ data WalletApi mode = WalletApi
   , getWalletBalance :: mode :- WalletBalance
   }
   deriving stock (Generic)
-
-instance HasSwagger (NamedRoutes WalletApi) where
-  toSwagger _ = toSwagger (Proxy :: Proxy (ToServantApi WalletApi))
 
 handleWalletApi :: ServerT (NamedRoutes WalletApi) EAApp
 handleWalletApi =

@@ -33,13 +33,14 @@ import EA.Tx.Changeblock.Oracle (createOracle)
 import EA.Wallet (eaGetAddresses, eaGetInternalAddresses)
 import GeniusYield.Test.Privnet.Ctx (
   Ctx (..),
-  User (userAddr),
+  User (userAddresses, userChangeAddress),
   ctxProviders,
-  ctxRunI,
-  submitTx,
+  ctxRun,
+  ctxRunBuilder,
  )
-import GeniusYield.Test.Privnet.Setup (Setup, makeSetup, withSetup)
-import GeniusYield.TxBuilder (addressToPubKeyHashIO, mustHaveOutput, runGYTxQueryMonadNode, scriptAddress)
+import GeniusYield.Test.Privnet.Setup (Setup, cardanoDefaultTestnetOptionsConway, withPrivnet, withSetup, withSetup')
+import GeniusYield.TxBuilder (GYTxBuilderMonadIO, GYTxSkeleton, addressToPubKeyHashIO, buildTxBody, mustHaveOutput, runGYTxQueryMonadIO, scriptAddress, signAndSubmitConfirmed)
+import GeniusYield.TxBuilder.Class (signAndSubmitConfirmed)
 import GeniusYield.Types
 import Internal.Wallet.DB.Sql (
   addToken,
@@ -66,160 +67,161 @@ data EACtx = EACtx
 
 withEASetup :: IO EACtx
 withEASetup = do
-  withSetup' makeSetup $ \ctx -> do
-    -- read .env file
-    loadFile defaultConfig
+  withPrivnet cardanoDefaultTestnetOptionsConway $ \setup -> do
+    withSetup setup $ \ctx -> do
+      -- read .env file
+      loadFile defaultConfig
 
-    metrics <- Metrics.initialize
-    rootKey <- createRootKey
+      metrics <- Metrics.initialize
+      rootKey <- createRootKey
 
-    carbonNftTypedScript <- readTypedScript "contracts/carbon-nft.json"
-    carbonTokenTypedScript <- readTypedScript "contracts/carbon-token.json"
-    marketplaceTypedScript <- readTypedScript "contracts/marketplace.json"
-    oracleTypedScript <- readTypedScript "contracts/oracle.json"
-    mintingNftTypedScript <- readTypedScript "contracts/nft.json"
-
-    let
-      scripts =
-        Scripts
-          { scriptCarbonNftPolicy = carbonNftTypedScript
-          , scriptCarbonTokenPolicy = carbonTokenTypedScript
-          , scriptMintingNftPolicy = mintingNftTypedScript
-          , scriptMarketplaceValidator = marketplaceTypedScript
-          , scriptOracleValidator = oracleTypedScript
-          }
-
-    -- Create db connection pool and run migrations
-    con <- getEnv "DB_CONNECTION_TEST"
-    pool <-
-      runStderrLoggingT
-        ( createPostgresqlPool
-            (fromString con)
-            20
-        )
-
-    bfIpfsToken <- getEnv "BLOCKFROST_IPFS"
-    -- TODO: Use valid oracle operator address
-    oracleOperatorPubkeyHash <- addressToPubKeyHashIO $ unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
-    -- TODO: Use valid escrow address
-    escrowPubkeyHash <- addressToPubKeyHashIO $ unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
-    -- TODO: Use valid Backdoor address
-    backdoorPubkeyHash <- addressToPubKeyHashIO $ unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
-
-    let
-      providers = ctxProviders ctx
-      (orcPolicy, orcTn) = (fromString "492335da5d8eb86f076717211c3e7e4711eedf8c358923e925b3c3b5", unsafeTokenNameFromHex "6f72636c65")
-      env =
-        EAAppEnv
-          { eaAppEnvGYProviders = providers
-          , eaAppEnvGYNetworkId = GYPrivnet
-          , eaAppEnvMetrics = metrics
-          , eaAppEnvScripts = scripts
-          , eaAppEnvSqlPool = pool
-          , eaAppEnvRootKey = rootKey
-          , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
-          , eaAppEnvOracleRefInputUtxo = Nothing
-          , eaAppEnvMarketplaceRefScriptUtxo = Nothing
-          , eaAppEnvMarketplaceBackdoorPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi backdoorPubkeyHash
-          , eaAppEnvOracleOperatorPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi oracleOperatorPubkeyHash
-          , eaAppEnvMarketplaceEscrowPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
-          , eaAppEnvOracleNftMintingPolicyId = Just orcPolicy
-          , eaAppEnvOracleNftTokenName = Just orcTn
-          , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "76312e302e30"
-          }
-
-      hashedToken = decodeUtf8 $ hash $ encodeUtf8 $ T.pack "test"
-
-    -- DB migrations
-    void $
-      runSqlPool
-        ( runAutoMigration
-            >> createAccount
-            >> addToken hashedToken "test Notes"
-        )
-        pool
-
-    -- Adding funds to the internal collateral address
-    txId <- runEAApp env $ do
-      (addr, _) <-
-        eaLiftMaybe "No internal address found"
-          . viaNonEmpty head
-          =<< eaGetInternalAddresses False
-      (colAddr, _) <-
-        eaLiftMaybe "No internal collateral address found"
-          . viaNonEmpty head
-          =<< eaGetInternalAddresses True
+      carbonNftTypedScript <- readTypedScript "contracts/carbon-nft.json"
+      carbonTokenTypedScript <- readTypedScript "contracts/carbon-token.json"
+      marketplaceTypedScript <- readTypedScript "contracts/marketplace.json"
+      oracleTypedScript <- readTypedScript "contracts/oracle.json"
+      mintingNftTypedScript <- readTypedScript "contracts/nft.json"
 
       let
-        funder = ctxUserF ctx
-        tx =
-          mustHaveOutput
-            (GYTxOut colAddr (valueFromLovelace 5_000_000) Nothing Nothing)
-            <> mustHaveOutput
-              (GYTxOut addr (valueFromLovelace 1_000_000_000) Nothing Nothing)
-
-      txBody <- liftIO $ ctxRunI ctx funder $ return tx
-      liftIO $ submitTx ctx funder txBody
-
-    gyAwaitTxConfirmed providers (GYAwaitTxParameters 5 5_000_000 1) txId
-
-    putStrLn $ "Send funds to the internal addresses: " <> show txId
-
-    -- Setup Oracle UTXO
-    let operatorPubkeyHash = eaAppEnvOracleOperatorPubKeyHash env
-        oref = fromString $ show txId ++ "#2"
-        scripts = eaAppEnvScripts env
-        networkId = eaAppEnvGYNetworkId env
-        orcNftPolicy = nftMintingPolicy oref scripts
-        oracleNftAsset = mintingPolicyId orcNftPolicy
-        orcTokenName = orcTn
-        orcAssetClass = GYToken oracleNftAsset orcTokenName
-        orcValidator = oracleValidator orcAssetClass operatorPubkeyHash scripts
-        orcAddress = addressFromValidator networkId orcValidator
-        skeleton = createOracle 1_000_000 oref orcAddress orcTokenName orcNftPolicy
-        marketplaceParams =
-          MarketplaceParams
-            { mktPrmOracleValidator = validatorHash orcValidator
-            , mktPrmEscrowValidator = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
-            , mktPrmVersion = eaAppEnvMarketplaceVersion env
-            , mktPrmOracleSymbol = oracleNftAsset
-            , mktPrmOracleTokenName = orcTokenName
-            , mktPrmBackdoor = paymentKeyHashFromApi $ pubKeyHashToApi backdoorPubkeyHash
+        scripts =
+          Scripts
+            { scriptCarbonNftPolicy = carbonNftTypedScript
+            , scriptCarbonTokenPolicy = carbonTokenTypedScript
+            , scriptMintingNftPolicy = mintingNftTypedScript
+            , scriptMarketplaceValidator = marketplaceTypedScript
+            , scriptOracleValidator = oracleTypedScript
             }
 
-    txBody <-
-      liftIO $ ctxRunI ctx (ctxUserF ctx) $ return skeleton
+      -- Create db connection pool and run migrations
+      con <- getEnv "DB_CONNECTION_TEST"
+      pool <-
+        runStderrLoggingT
+          ( createPostgresqlPool
+              (fromString con)
+              20
+          )
 
-    oracleTxId <- submitTx ctx (ctxUserF ctx) txBody
-    gyAwaitTxConfirmed providers (GYAwaitTxParameters 5 5_000_000 1) oracleTxId
+      bfIpfsToken <- getEnv "BLOCKFROST_IPFS"
+      -- TODO: Use valid oracle operator address
+      oracleOperatorPubkeyHash <- addressToPubKeyHashIO $ unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
+      -- TODO: Use valid escrow address
+      escrowPubkeyHash <- addressToPubKeyHashIO $ unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
+      -- TODO: Use valid Backdoor address
+      backdoorPubkeyHash <- addressToPubKeyHashIO $ unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
 
-    putStrLn $ "Oracle UTXO created: " <> show oracleTxId
-
-    oracleRefInputUtxo <-
-      gyQueryUtxosAtTxOutRefsWithDatums providers [txOutRefFromTuple (oracleTxId, 0)]
-        >>= maybe (pure Nothing) (return . rightToMaybe . utxoToOracleInfo) . listToMaybe
-
-    let env' =
-          env
-            { eaAppEnvOracleNftMintingPolicyId = Just oracleNftAsset
-            , eaAppEnvOracleNftTokenName = Just orcTokenName
-            , eaAppEnvOracleRefInputUtxo = oracleRefInputUtxo
+      let
+        providers = ctxProviders ctx
+        (orcPolicy, orcTn) = (fromString "492335da5d8eb86f076717211c3e7e4711eedf8c358923e925b3c3b5", unsafeTokenNameFromHex "6f72636c65")
+        env =
+          EAAppEnv
+            { eaAppEnvGYProviders = providers
+            , eaAppEnvGYNetworkId = GYPrivnet
+            , eaAppEnvMetrics = metrics
+            , eaAppEnvScripts = scripts
+            , eaAppEnvSqlPool = pool
+            , eaAppEnvRootKey = rootKey
+            , eaAppEnvBlockfrostIpfsProjectId = bfIpfsToken
+            , eaAppEnvOracleRefInputUtxo = Nothing
+            , eaAppEnvMarketplaceRefScriptUtxo = Nothing
+            , eaAppEnvMarketplaceBackdoorPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi backdoorPubkeyHash
+            , eaAppEnvOracleOperatorPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi oracleOperatorPubkeyHash
+            , eaAppEnvMarketplaceEscrowPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
+            , eaAppEnvOracleNftMintingPolicyId = Just orcPolicy
+            , eaAppEnvOracleNftTokenName = Just orcTn
+            , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "76312e302e30"
             }
 
-        eaCtx =
-          EACtx
-            { eaCtxCtx = ctx
-            , eaCtxEnv = env'
-            , eaCtxToken = "test"
-            , eaCtxMarketplaceParams = marketplaceParams
-            }
+        hashedToken = decodeUtf8 $ hash $ encodeUtf8 $ T.pack "test"
 
-    -- Mint Test Carbon token to use in Order Apis
-    carbonUtxoRef <- createTestCarbonToken eaCtx
+      -- DB migrations
+      void $
+        runSqlPool
+          ( runAutoMigration
+              >> createAccount
+              >> addToken hashedToken "test Notes"
+          )
+          pool
 
-    putStrLn $ "Carbon Token Minted: " <> show carbonUtxoRef
+      -- Adding funds to the internal collateral address
+      txId <- runEAApp env $ do
+        (addr, _) <-
+          eaLiftMaybe "No internal address found"
+            . viaNonEmpty head
+            =<< eaGetInternalAddresses False
+        (colAddr, _) <-
+          eaLiftMaybe "No internal collateral address found"
+            . viaNonEmpty head
+            =<< eaGetInternalAddresses True
 
-    return eaCtx
+        let
+          funder = ctxUserF ctx
+          tx =
+            mustHaveOutput
+              (GYTxOut colAddr (valueFromLovelace 5_000_000) Nothing Nothing)
+              <> mustHaveOutput
+                (GYTxOut addr (valueFromLovelace 1_000_000_000) Nothing Nothing)
+
+        txBody <- liftIO $ ctxRunI ctx funder $ return tx
+        liftIO $ ctxRun ctx funder $ signAndSubmitConfirmed txBody
+
+      gyAwaitTxConfirmed providers (GYAwaitTxParameters 5 5_000_000 1) txId
+
+      putStrLn $ "Send funds to the internal addresses: " <> show txId
+
+      -- Setup Oracle UTXO
+      let operatorPubkeyHash = eaAppEnvOracleOperatorPubKeyHash env
+          oref = fromString $ show txId ++ "#2"
+          scripts = eaAppEnvScripts env
+          networkId = eaAppEnvGYNetworkId env
+          orcNftPolicy = nftMintingPolicy oref scripts
+          oracleNftAsset = mintingPolicyId orcNftPolicy
+          orcTokenName = orcTn
+          orcAssetClass = GYToken oracleNftAsset orcTokenName
+          orcValidator = oracleValidator orcAssetClass operatorPubkeyHash scripts
+          orcAddress = addressFromValidator networkId orcValidator
+          skeleton = createOracle 1_000_000 oref orcAddress orcTokenName orcNftPolicy
+          marketplaceParams =
+            MarketplaceParams
+              { mktPrmOracleValidator = validatorHash orcValidator
+              , mktPrmEscrowValidator = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
+              , mktPrmVersion = eaAppEnvMarketplaceVersion env
+              , mktPrmOracleSymbol = oracleNftAsset
+              , mktPrmOracleTokenName = orcTokenName
+              , mktPrmBackdoor = paymentKeyHashFromApi $ pubKeyHashToApi backdoorPubkeyHash
+              }
+
+      txBody <-
+        liftIO $ ctxRunI ctx (ctxUserF ctx) $ return skeleton
+
+      oracleTxId <- ctxRun ctx (ctxUserF ctx) $ signAndSubmitConfirmed txBody
+      gyAwaitTxConfirmed providers (GYAwaitTxParameters 5 5_000_000 1) oracleTxId
+
+      putStrLn $ "Oracle UTXO created: " <> show oracleTxId
+
+      oracleRefInputUtxo <-
+        gyQueryUtxosAtTxOutRefsWithDatums providers [txOutRefFromTuple (oracleTxId, 0)]
+          >>= maybe (pure Nothing) (return . rightToMaybe . utxoToOracleInfo) . listToMaybe
+
+      let env' =
+            env
+              { eaAppEnvOracleNftMintingPolicyId = Just oracleNftAsset
+              , eaAppEnvOracleNftTokenName = Just orcTokenName
+              , eaAppEnvOracleRefInputUtxo = oracleRefInputUtxo
+              }
+
+          eaCtx =
+            EACtx
+              { eaCtxCtx = ctx
+              , eaCtxEnv = env'
+              , eaCtxToken = "test"
+              , eaCtxMarketplaceParams = marketplaceParams
+              }
+
+      -- Mint Test Carbon token to use in Order Apis
+      carbonUtxoRef <- createTestCarbonToken eaCtx
+
+      putStrLn $ "Carbon Token Minted: " <> show carbonUtxoRef
+
+      return eaCtx
   where
     withSetup' :: IO Setup -> (Ctx -> IO EACtx) -> IO EACtx
     withSetup' ioSetup kont = do
@@ -277,13 +279,13 @@ createTestCarbonToken EACtx {..} = do
     pure $ head $ NE.fromList addrs
 
   issuerPubKeyHash <- addressToPubKeyHashIO issuerAddr
-  utxos <- gyQueryUtxosAtAddress (eaAppEnvGYProviders eaCtxEnv) (userAddr user) Nothing
+  utxos <- gyQueryUtxosAtAddresses (eaAppEnvGYProviders eaCtxEnv) (userAddresses user)
   oref <- randomTxOutRef utxos >>= maybe (error "No utxos found") (\(oref, _) -> return oref)
-  marketplaceAddr <- runGYTxQueryMonadNode nid providers $ scriptAddress (marketplaceValidator eaCtxMarketplaceParams scripts)
+  marketplaceAddr <- runGYTxQueryMonadIO nid providers $ scriptAddress (marketplaceValidator eaCtxMarketplaceParams scripts)
 
   let tx = mintIpfsNftCarbonToken oref marketplaceAddr issuerAddr (paymentKeyHashFromApi $ pubKeyHashToApi issuerPubKeyHash) (paymentKeyHashFromApi $ pubKeyHashToApi issuerPubKeyHash) tokenName 100 20000 scripts
   txBody <- liftIO $ ctxRunI eaCtxCtx user $ return tx
-  txId <- submitTx eaCtxCtx user txBody
+  txId <- ctxRun eaCtxCtx user $ signAndSubmitConfirmed txBody
   gyAwaitTxConfirmed providers (GYAwaitTxParameters 5 5_000_000 1) txId
   pure $ txOutRefFromTuple (txId, 0)
 
@@ -296,7 +298,7 @@ sendFundsToAddress addr value ctx = do
         (GYTxOut addr value Nothing Nothing)
 
   txBody <- liftIO $ ctxRunI ctx funder $ return tx
-  txid <- submitTx ctx funder txBody
+  txid <- ctxRun ctx funder $ signAndSubmitConfirmed txBody
   gyAwaitTxConfirmed (ctxProviders ctx) (GYAwaitTxParameters 5 5_000_000 1) txid
   pure txid
 
@@ -305,3 +307,6 @@ checkResponseTxConfirmed ctx resp = do
   SubmitTxResponse {..} <- maybe (fail "Invalid Response") pure $ Aeson.decode @SubmitTxResponse resp
   gyAwaitTxConfirmed (ctxProviders ctx) (GYAwaitTxParameters 5 5_000_000 1) submitTxId
   pure submitTxId
+
+ctxRunI :: Ctx -> User -> GYTxBuilderMonadIO (GYTxSkeleton v) -> IO GYTxBody
+ctxRunI ctx user act = ctxRunBuilder ctx user $ act >>= buildTxBody
