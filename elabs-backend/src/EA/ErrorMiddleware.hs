@@ -18,8 +18,6 @@ import Data.Text.Lazy.Encoding qualified as LTE
 import GeniusYield.HTTP.Errors
 import GeniusYield.Imports
 import GeniusYield.Providers.Common (SubmitTxException (SubmitTxException))
-import GeniusYield.Transaction (BuildTxException (..))
-import GeniusYield.Transaction.Common (BalancingError (..))
 import GeniusYield.TxBuilder
 import Network.HTTP.Types (Status (statusCode, statusMessage), status400, status500)
 import Network.Wai qualified as Wai
@@ -58,39 +56,6 @@ exceptionHandler :: SomeException -> GYApiError
 exceptionHandler =
   catchesWaiExc
     [ WH $ \case
-        BuildTxBalancingError (BalancingErrorInsufficientFunds x) ->
-          GYApiError
-            { gaeErrorCode = "INSUFFICIENT_BALANCE"
-            , gaeHttpStatus = status400
-            , gaeMsg = "Value dip: " <> tShow x
-            }
-        BuildTxBalancingError BalancingErrorEmptyOwnUTxOs ->
-          GYApiError
-            { gaeErrorCode = "INSUFFICIENT_BALANCE"
-            , gaeHttpStatus = status400
-            , gaeMsg = "No UTxOs available to build transaction from in wallet"
-            }
-        BuildTxBalancingError (BalancingErrorChangeShortFall a) ->
-          GYApiError
-            { gaeErrorCode = "INSUFFICIENT_BALANCE"
-            , gaeHttpStatus = status400
-            , gaeMsg = "When trying to balance the transaction, our coin balancer felt short by " <> tShow a <> " lovelaces"
-            }
-        BuildTxCollateralShortFall req given ->
-          GYApiError
-            { -- This won't really happen as the collateral UTxO we choose has >= 5 ada.
-              gaeErrorCode = "INSUFFICIENT_BALANCE"
-            , gaeHttpStatus = status400
-            , gaeMsg = "Total lovelaces required as collateral to build for this transaction " <> tShow req <> " but only available " <> tShow given
-            }
-        BuildTxNoSuitableCollateral ->
-          GYApiError
-            { gaeErrorCode = "NO_SUITABLE_COLLATERAL"
-            , gaeHttpStatus = status400
-            , gaeMsg = "Could not find the suitable UTxO as collateral, wallet must have a UTxO containing more than " <> tShow collateralLovelace <> " lovelaces"
-            }
-        e -> someBackendError $ displayException' e
-    , WH $ \case
         SubmitTxException errBody ->
           GYApiError
             { gaeErrorCode = "SUBMISSION_FAILURE"
@@ -100,6 +65,40 @@ exceptionHandler =
     , WH $ \case
         GYConversionException convErr -> someBackendError $ tShow convErr
         GYQueryUTxOException txErr -> someBackendError $ tShow txErr
+        -- make better error messages for GYBuildTxException
+        e@(GYBuildTxException buildErr) -> case buildErr of
+          GYBuildTxBalancingError (GYBalancingErrorInsufficientFunds x) ->
+            GYApiError
+              { gaeErrorCode = "INSUFFICIENT_BALANCE"
+              , gaeHttpStatus = status400
+              , gaeMsg = "Value dip: " <> tShow x
+              }
+          GYBuildTxBalancingError GYBalancingErrorEmptyOwnUTxOs ->
+            GYApiError
+              { gaeErrorCode = "INSUFFICIENT_BALANCE"
+              , gaeHttpStatus = status400
+              , gaeMsg = "No UTxOs available to build transaction from in wallet"
+              }
+          GYBuildTxBalancingError (GYBalancingErrorChangeShortFall a) ->
+            GYApiError
+              { gaeErrorCode = "INSUFFICIENT_BALANCE"
+              , gaeHttpStatus = status400
+              , gaeMsg = "When trying to balance the transaction, our coin balancer felt short by " <> tShow a <> " lovelaces"
+              }
+          GYBuildTxCollateralShortFall req given ->
+            GYApiError
+              { -- This won't really happen as the collateral UTxO we choose has >= 5 ada.
+                gaeErrorCode = "INSUFFICIENT_BALANCE"
+              , gaeHttpStatus = status400
+              , gaeMsg = "Total lovelaces required as collateral to build for this transaction " <> tShow req <> " but only available " <> tShow given
+              }
+          GYBuildTxNoSuitableCollateral ->
+            GYApiError
+              { gaeErrorCode = "NO_SUITABLE_COLLATERAL"
+              , gaeHttpStatus = status400
+              , gaeMsg = "Could not find the suitable UTxO as collateral, wallet must have a UTxO containing more than " <> tShow collateralLovelace <> " lovelaces"
+              }
+          _anyOther -> someBackendError $ tShow e
         GYNoSuitableCollateralException minAmt addr ->
           someBackendError $
             "No suitable collateral of at least "
@@ -146,15 +145,15 @@ apiErrorToServerError GYApiError {..} =
     , errHeaders = [("Content-Type", "application/json")]
     }
 
-data WaiExceptionHandler = forall e. Exception e => WH (e -> GYApiError)
+data WaiExceptionHandler = forall e. (Exception e) => WH (e -> GYApiError)
 
 catchesWaiExc :: [WaiExceptionHandler] -> SomeException -> GYApiError
 catchesWaiExc handlers e = foldr tryHandler (someBackendError $ displayException' e) handlers
   where
     tryHandler (WH handler) res = maybe res handler $ fromException e
 
-displayException' :: Exception e => e -> Text
+displayException' :: (Exception e) => e -> Text
 displayException' = T.pack . displayException
 
-tShow :: Show a => a -> Text
+tShow :: (Show a) => a -> Text
 tShow = T.pack . show

@@ -1,6 +1,7 @@
 module EA.CLI.Marketplace.Run (runMarketplaceCommand) where
 
 import EA (EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvMarketplaceBackdoorPubKeyHash, eaAppEnvMarketplaceEscrowPubKeyHash, eaAppEnvMarketplaceVersion, eaAppEnvOracleNftMintingPolicyId, eaAppEnvOracleNftTokenName, eaAppEnvOracleOperatorPubKeyHash, eaAppEnvScripts), eaLiftMaybe, eaMarketplaceInfos, eaSubmitTx, initEAApp, runEAApp)
+import EA.Api.Ctx (runSkeletonF)
 import EA.CLI.Helper (fetchCoreCfg, fetchRootKeyFilePath)
 import EA.CLI.Marketplace.Command (MarketplaceCommand (MarketplaceDeployScript, MarketplaceWithdrawScript), MarketplaceDeployCommand (MarketplaceDeployCommand), MarketplaceWithdrawCommand (..))
 import EA.Script (oracleValidator)
@@ -9,7 +10,6 @@ import EA.Tx.Changeblock.Marketplace (deployScript, withdrawCarbonToken)
 import EA.Wallet (eaGetInternalAddresses, eaSelectOref)
 import GeniusYield.GYConfig (withCfgProviders)
 import GeniusYield.Imports (printf)
-import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types (GYAssetClass (GYToken), addressFromPaymentKeyHash, readSomeSigningKey, signGYTxBody, unsafeAddressFromText, unsafeTokenNameFromHex, validatorHash)
 import Internal.Wallet qualified as Wallet
 
@@ -47,7 +47,7 @@ runMarketplaceCommand (MarketplaceDeployScript (MarketplaceDeployCommand dplMktp
 
   txBody <-
     liftIO $
-      runGYTxMonadNode networkId providers [addr] addr Nothing (return skeleton)
+      runSkeletonF networkId providers [addr] addr Nothing (return skeleton)
 
   print txBody
 
@@ -95,7 +95,7 @@ runMarketplaceCommand (MarketplaceWithdrawScript MarketplaceWithdrawCommand {..}
 
   txBody <-
     liftIO $
-      runGYTxMonadNode networkId providers [backdoorAddr] backdoorAddr Nothing (return skeleton)
+      runSkeletonF networkId providers [backdoorAddr] backdoorAddr Nothing (return skeleton)
 
   gyTxId <- runEAApp env $ eaSubmitTx $ signGYTxBody txBody [backdoorSkey]
 

@@ -11,6 +11,7 @@ import Data.Text qualified as T
 import Database.Persist.Sql (runSqlPool)
 import EA (EAAppEnv (..), eaLiftMaybe, eaSubmitTx, initEAApp, runEAApp)
 import EA.Api (apiSwagger)
+import EA.Api.Ctx (runSkeletonF)
 import EA.ErrorMiddleware (apiErrorToServerError, exceptionHandler)
 import EA.Routes (appRoutes, routes)
 import EA.Script (nftMintingPolicy, oracleValidator)
@@ -28,7 +29,6 @@ import GeniusYield.GYConfig (
   withCfgProviders,
  )
 import GeniusYield.Imports (printf)
-import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types
 import Internal.Wallet (
   genRootKeyFromMnemonic,
@@ -315,7 +315,7 @@ app (Options {..}) = do
 
           txBody <-
             liftIO $
-              runGYTxMonadNode networkId providers [addr] addr collateral (return skeleton)
+              runSkeletonF networkId providers [addr] addr collateral (return skeleton)
 
           gyTxId <- runEAApp env $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
           printf "\n Oracle created with TxId: %s \n " gyTxId
@@ -356,7 +356,7 @@ app (Options {..}) = do
 
           txBody <-
             liftIO $
-              runGYTxMonadNode networkId providers [addr] addr collateral (return skeleton)
+              runSkeletonF networkId providers [addr] addr collateral (return skeleton)
 
           putStrLn "TXBody \n"
           print txBody

@@ -3,6 +3,7 @@ module EA.CLI.Oracle.Run (
 ) where
 
 import EA (EAAppEnv (eaAppEnvGYNetworkId, eaAppEnvOracleOperatorPubKeyHash, eaAppEnvScripts), eaLiftMaybe, eaSubmitTx, initEAApp, runEAApp)
+import EA.Api.Ctx (runSkeletonF)
 import EA.CLI.Helper (fetchCoreCfg, fetchRootKeyFilePath)
 import EA.CLI.Oracle.Command (OracleCommand (..), OracleCreateCommand (..))
 import EA.Script (nftMintingPolicy, oracleValidator)
@@ -10,7 +11,6 @@ import EA.Tx.Changeblock.Oracle (createOracle)
 import EA.Wallet (eaGetCollateralFromInternalWallet, eaGetInternalAddresses, eaSelectOref)
 import GeniusYield.GYConfig (withCfgProviders)
 import GeniusYield.Imports (printf)
-import GeniusYield.TxBuilder (runGYTxMonadNode)
 import GeniusYield.Types (GYAssetClass (GYToken), addressFromValidator, mintingPolicyId, unsafeTokenNameFromHex)
 import Internal.Wallet qualified as Wallet
 
@@ -43,7 +43,7 @@ runOracleCommand (CreateOracle (OracleCreateCommand rate oracleAssetName)) = do
 
   txBody <-
     liftIO $
-      runGYTxMonadNode networkId providers [addr] addr collateral (return skeleton)
+      runSkeletonF networkId providers [addr] addr collateral (return skeleton)
 
   gyTxId <- runEAApp env $ eaSubmitTx $ Wallet.signTx txBody [key, colKey]
   printf "\n Oracle created with TxId: %s \n " gyTxId

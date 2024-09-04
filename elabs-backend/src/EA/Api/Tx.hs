@@ -27,11 +27,9 @@ import Servant (
   JSON,
   NamedRoutes,
   QueryParam,
-  ToServantApi,
   err400,
   type (:>),
  )
-import Servant.Swagger (HasSwagger (toSwagger))
 
 --------------------------------------------------------------------------------
 
@@ -39,9 +37,6 @@ data TxApi mode = TxApi
   { txStatus :: mode :- TxStatus
   }
   deriving stock (Generic)
-
-instance HasSwagger (NamedRoutes TxApi) where
-  toSwagger _ = toSwagger (Proxy :: Proxy (ToServantApi TxApi))
 
 handleTxApi :: ServerT (NamedRoutes TxApi) EAApp
 handleTxApi =

@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module EA.Script.Marketplace (
   MarketplaceAction (..),
@@ -103,19 +104,28 @@ instance Swagger.ToSchema MarketplaceOrderType where
     return $
       Swagger.named "MarketplaceOrderType" $
         mempty
-          & Swagger.type_ ?~ Swagger.SwaggerString
-          & Swagger.enum_ ?~ ["BUY", "SELL"]
-          & Swagger.description ?~ "Marketplace Order Type"
-          & Swagger.maxItems ?~ 1
-          & Swagger.minItems ?~ 1
+          & Swagger.type_
+          ?~ Swagger.SwaggerString
+            & Swagger.enum_
+          ?~ ["BUY", "SELL"]
+            & Swagger.description
+          ?~ "Marketplace Order Type"
+            & Swagger.maxItems
+          ?~ 1
+            & Swagger.minItems
+          ?~ 1
 
 instance Swagger.ToParamSchema MarketplaceOrderType where
   toParamSchema _ =
     mempty
-      & Swagger.type_ ?~ Swagger.SwaggerString
-      & Swagger.enum_ ?~ ["BUY", "SELL"]
-      & Swagger.maxItems ?~ 1
-      & Swagger.minItems ?~ 1
+      & Swagger.type_
+      ?~ Swagger.SwaggerString
+        & Swagger.enum_
+      ?~ ["BUY", "SELL"]
+        & Swagger.maxItems
+      ?~ 1
+        & Swagger.minItems
+      ?~ 1
 
 instance Aeson.FromJSON MarketplaceOrderType where
   parseJSON = Aeson.withText "MarketplaceOrderType" $ \case
@@ -171,29 +181,29 @@ instance Aeson.FromJSON MarketplaceInfo where
   parseJSON = Aeson.withObject "MarketplaceInfo" $ \v ->
     MarketplaceInfo
       <$> v
-      Aeson..: "tx_ref"
+        Aeson..: "tx_ref"
       <*> v
-      Aeson..: "address"
+        Aeson..: "address"
       <*> v
-      Aeson..: "value"
+        Aeson..: "value"
       <*> v
-      Aeson..: "owner"
+        Aeson..: "owner"
       <*> v
-      Aeson..: "price"
+        Aeson..: "price"
       <*> v
-      Aeson..: "carbon-token-id"
+        Aeson..: "carbon-token-id"
       <*> v
-      Aeson..: "carbon-token-name"
+        Aeson..: "carbon-token-name"
       <*> v
-      Aeson..: "amount"
+        Aeson..: "amount"
       <*> v
-      Aeson..: "issuer"
+        Aeson..: "issuer"
       <*> v
-      Aeson..: "order_type"
+        Aeson..: "order_type"
       <*> v
-      Aeson..: "ada_price_usd"
+        Aeson..: "ada_price_usd"
       <*> v
-      Aeson..: "token_price_in_usd"
+        Aeson..: "token_price_in_usd"
 
 instance Swagger.ToSchema MarketplaceInfo where
   declareNamedSchema _ = do
@@ -209,25 +219,30 @@ instance Swagger.ToSchema MarketplaceInfo where
     return $
       Swagger.named "MarketplaceInfo" $
         mempty
-          & Swagger.type_ ?~ Swagger.SwaggerObject
-          & Swagger.properties
-            .~ [ (T.pack "tx_ref", txOutRefSchema)
-               , (T.pack "address", addressSchema)
-               , (T.pack "value", valueSchema)
-               , (T.pack "owner", pubKeyHashSchema)
-               , (T.pack "price", integerSchema)
-               , (T.pack "carbon-token-id", mintingPolicyIdSchema)
-               , (T.pack "carbon-token-name", tokenNameSchema)
-               , (T.pack "amount", integerSchema)
-               , (T.pack "issuer", pubKeyHashSchema)
-               , (T.pack "order_type", orderTypeSchema)
-               , (T.pack "ada_price_usd", doubleSchema)
-               , (T.pack "token_price_in_usd", doubleSchema)
-               ]
-          & Swagger.required .~ [T.pack "tx_ref", T.pack "address", T.pack "value", T.pack "owner", T.pack "price", T.pack "carbon-token-id", T.pack "carbon-token-name", T.pack "amount", T.pack "issuer", T.pack "order_type"]
-          & Swagger.description ?~ "Marketplace Order Info"
-          & Swagger.maxProperties ?~ 12
-          & Swagger.minProperties ?~ 12
+          & Swagger.type_
+          ?~ Swagger.SwaggerObject
+            & Swagger.properties
+          .~ [ (T.pack "tx_ref", txOutRefSchema)
+             , (T.pack "address", addressSchema)
+             , (T.pack "value", valueSchema)
+             , (T.pack "owner", pubKeyHashSchema)
+             , (T.pack "price", integerSchema)
+             , (T.pack "carbon-token-id", mintingPolicyIdSchema)
+             , (T.pack "carbon-token-name", tokenNameSchema)
+             , (T.pack "amount", integerSchema)
+             , (T.pack "issuer", pubKeyHashSchema)
+             , (T.pack "order_type", orderTypeSchema)
+             , (T.pack "ada_price_usd", doubleSchema)
+             , (T.pack "token_price_in_usd", doubleSchema)
+             ]
+            & Swagger.required
+          .~ [T.pack "tx_ref", T.pack "address", T.pack "value", T.pack "owner", T.pack "price", T.pack "carbon-token-id", T.pack "carbon-token-name", T.pack "amount", T.pack "issuer", T.pack "order_type"]
+            & Swagger.description
+          ?~ "Marketplace Order Info"
+            & Swagger.maxProperties
+          ?~ 12
+            & Swagger.minProperties
+          ?~ 12
 
 marketplaceInfoToDatum :: MarketplaceInfo -> MarketplaceDatum
 marketplaceInfoToDatum MarketplaceInfo {..} =

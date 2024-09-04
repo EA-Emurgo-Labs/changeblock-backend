@@ -35,13 +35,12 @@ import Servant (
   Header,
   NamedRoutes,
   Raw,
-  ToServantApi,
   err401,
   hoistServer,
   serveDirectoryFileServer,
   (:>),
  )
-import Servant.Swagger (HasSwagger, toSwagger)
+import Servant.Swagger (toSwagger)
 
 --------------------------------------------------------------------------------
 
@@ -58,16 +57,19 @@ data ChangeblockApi mode = ChangeblockApi
   }
   deriving stock (Generic)
 
-instance HasSwagger (NamedRoutes ChangeblockApi) where
-  toSwagger _ = toSwagger (Proxy :: Proxy (ToServantApi ChangeblockApi))
-
 apiSwagger :: Swagger
 apiSwagger =
   toSwagger appApi
-    & info . title .~ "ChangeBlock API"
-    & info . version .~ "1.0"
-    & info . description ?~ "The ChangeBlock API."
-    & (basePath ?~ "/api")
+    & info
+    . title
+    .~ "ChangeBlock API"
+      & info
+      . version
+    .~ "1.0"
+      & info
+      . description
+    ?~ "The ChangeBlock API."
+      & (basePath ?~ "/api")
 
 appApi :: Proxy Api
 appApi = Proxy

@@ -5,6 +5,7 @@ module EA.Api.Carbon (
 where
 
 import Data.Aeson qualified as Aeson
+import Data.Base16.Types (extractBase16)
 import Data.Swagger qualified as Swagger
 import Data.Text qualified as T
 import Data.Text.Encoding.Base16 (encodeBase16)
@@ -26,6 +27,7 @@ import EA (
   eaLiftMaybeApiError,
   eaSubmitTx,
  )
+import EA.Api.Ctx (runSkeletonF)
 import EA.Api.Order.Exception (OrderApiException (OrderNoOraclePolicyId, OrderNoOracleToken, OrderNoOracleUtxo))
 import EA.Api.Types (
   CarbonMintRequest (amount, sell, userId),
@@ -43,8 +45,7 @@ import EA.Wallet (
   eaSelectOref,
  )
 import GeniusYield.TxBuilder (
-  runGYTxMonadNode,
-  runGYTxQueryMonadNode,
+  runGYTxQueryMonadIO,
   scriptAddress,
  )
 import GeniusYield.Types (
@@ -169,18 +170,21 @@ handleCarbonApi multipartData = do
 
   marketplaceAddress <-
     liftIO $
-      runGYTxQueryMonadNode nid providers $
+      runGYTxQueryMonadIO nid providers $
         scriptAddress (marketplaceValidator marketParams scripts)
 
   ipfsAddResp <- ipfsAddFile filePart
   ipfsPinObjResp <- ipfsPinObject ipfsAddResp.ipfs_hash
 
+  putStrLn $ "IPFS Pinning State: " <> show ipfsPinObjResp.state
+
   let
     tokenName =
       unsafeTokenNameFromHex $
-        encodeBase16 $
-          T.take 10 $
-            T.append "CBLK" ipfsAddResp.ipfs_hash
+        extractBase16 $
+          encodeBase16 $
+            T.take 10 $
+              T.append "NEXC" ipfsAddResp.ipfs_hash
 
     tx =
       mintIpfsNftCarbonToken
@@ -196,10 +200,9 @@ handleCarbonApi multipartData = do
 
     carbonNftAsset = GYToken (mintingPolicyId $ carbonNftMintingPolicy userOref tokenName scripts) tokenName
 
-  txBody <-
-    liftIO $
-      runGYTxMonadNode nid providers [userAddr] userAddr collateral (return tx)
+  txBody <- liftIO $ runSkeletonF nid providers [userAddr] userAddr collateral (return tx)
 
+  putStrLn $ show txBody
   void $ eaSubmitTx $ Wallet.signTx txBody [userKey, colKey]
 
   return $

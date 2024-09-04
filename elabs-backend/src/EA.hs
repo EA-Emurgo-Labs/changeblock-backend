@@ -43,6 +43,7 @@ import Data.Pool (Pool)
 import Database.Persist.Sql (SqlBackend, runSqlPool)
 
 import Control.Monad.Logger (LoggingT (runLoggingT), fromLogStr)
+import Data.Text qualified as T
 import Database.Persist.Postgresql (createPostgresqlPool)
 import EA.Api.Order.Exception (OrderApiException (OrderNoOraclePolicyId, OrderNoOracleToken, OrderNoOracleUtxo))
 import EA.Internal (fromLogLevel)
@@ -65,11 +66,10 @@ import Internal.Wallet.DB.Sql (createAccount, runAutoMigration)
 import Ply (readTypedScript)
 import Relude.Unsafe qualified as Unsafe
 import Servant (ServerError (errBody), err400)
-import System.Directory.Internal.Prelude (getEnv)
+import System.Environment (getEnv)
 import UnliftIO (MonadUnliftIO (withRunInIO), throwIO)
 
 --------------------------------------------------------------------------------
-
 newtype EAApp a = EAApp
   { unEAApp :: ReaderT EAAppEnv IO a
   }
@@ -365,6 +365,11 @@ initEAApp conf providers rootKeyPath dbPoolSize = do
     lookupEnv "MARKETPLACE_REF_SCRIPT_UTXO"
       >>= maybe (return Nothing) (gyQueryUtxoAtTxOutRef providers . fromString)
 
+  -- fetch marketplace version from ENV variable else use default v0.0.4
+  marketplaceVersion <-
+    lookupEnv "MARKETPLACE_VERSION"
+      >>= \v -> maybe (return "302e302e34") return v
+
   return $
     EAAppEnv
       { eaAppEnvGYProviders = providers
@@ -381,7 +386,7 @@ initEAApp conf providers rootKeyPath dbPoolSize = do
       , eaAppEnvOracleNftMintingPolicyId = oracleNftPolicyId
       , eaAppEnvOracleNftTokenName = oracleNftTokenName
       , eaAppEnvMarketplaceEscrowPubKeyHash = paymentKeyHashFromApi $ pubKeyHashToApi escrowPubkeyHash
-      , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex "302e302e34" -- v0.0.4
+      , eaAppEnvMarketplaceVersion = unsafeTokenNameFromHex $ T.pack marketplaceVersion
       }
   where
     oracleNftPolicyIdAndTokenName :: Maybe GYAssetClass -> (Maybe GYMintingPolicyId, Maybe GYTokenName)
