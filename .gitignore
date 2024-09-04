@@ -51,3 +51,5 @@ sample-ipfs-file.txt
 bin
 .db
 exe
+dev-profile
+dev-profile-*

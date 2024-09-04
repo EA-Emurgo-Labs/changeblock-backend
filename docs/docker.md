@@ -20,7 +20,7 @@ docker build --build-arg CACHIX_AUTHTOKEN=<AUTHTOKEN> -t elabs-backend .
 Try running it
 
 ```bash
-docker run elabs-backend
+docker run --expose 8081 -p 8081:8081  elabs-backend
 ```
 
 That's it! You have now successfully set up the Changeblock backend using Docker.
