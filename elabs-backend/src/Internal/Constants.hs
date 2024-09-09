@@ -4,16 +4,17 @@ module Internal.Constants (
   constOracleOperatorAddress,
 ) where
 
-import GeniusYield.Types (GYAddress, GYNetworkId, unsafeAddressFromText)
+import GeniusYield.Types (GYAddress, GYNetworkId (GYMainnet), unsafeAddressFromText)
 
--- TODO: Use valid escrow address for mainnet
 constEscrowAddress :: GYNetworkId -> GYAddress
+constEscrowAddress GYMainnet = unsafeAddressFromText "addr1qxpk2jharz8704cqncw2yu2l9k4klxz3rh7z3m9cavr94xm4nkl28hmhngyh77w9fjrrcdnkcr98ye5p0qu73c2afvlsmdclgy"
 constEscrowAddress _ = unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
 
--- TODO: Use valid backdoor address for mainnet
 constBackdoorAddress :: GYNetworkId -> GYAddress
+constBackdoorAddress GYMainnet = unsafeAddressFromText "addr1qxlw355sgszrmg0952qr9etvqkec0vl232tm5g24tt7c9gzv6mq62r97eph9f22h3gqsvuq6kg6skmhrt4dwjkdhznzqyjysr2"
 constBackdoorAddress _ =
   unsafeAddressFromText "addr_test1vrvx594erd0d2sj4hm4ux4av3jv5wqu4uayjat44uh8r08cqta7gu"
 
 constOracleOperatorAddress :: GYNetworkId -> GYAddress
+constOracleOperatorAddress GYMainnet = unsafeAddressFromText "addr1qxymp067sp2k5kqry0vcsk4et40fuha9gg08kuad4m37rndl9u29prth7gntv9z0ev3zcx4fs65u4agtnh32pw7kmqdqqegjhe"
 constOracleOperatorAddress _ = unsafeAddressFromText "addr_test1vrvx594erd0d2sj4hm4ux4av3jv5wqu4uayjat44uh8r08cqta7gu"
