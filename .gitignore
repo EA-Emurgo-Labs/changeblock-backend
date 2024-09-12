@@ -26,6 +26,8 @@ config-files/*
 *.vkey
 *.addr
 config.json
+config.preprod.json
+config.mainnet.json
 swagger-api.json
 result
 result-*
@@ -46,6 +48,7 @@ wallet.test.db*
 *.key
 .env
 .env.testnet
+.env.mainnet
 .env.local
 sample-ipfs-file.txt
 bin
