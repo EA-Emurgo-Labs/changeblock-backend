@@ -1,5 +1,6 @@
 module EA.Api.Types (
   AuthorizationHeader (..),
+  OrderScriptResponse (..),
   UserId (..),
   SubmitTxParams (..),
   SubmitTxResponse (..),
@@ -165,6 +166,14 @@ data WalletAddressWithPubKeyHash = WalletResponseWithPubKeyHash
 
 walletAddressWithPubKeyHash :: GYAddress -> WalletAddressWithPubKeyHash
 walletAddressWithPubKeyHash addr = WalletResponseWithPubKeyHash (addressToBech32 addr) (addressToPubKeyHash addr)
+
+data OrderScriptResponse = OrderScriptResponse
+  { scriptAddress :: !GYAddressBech32
+  , scriptVersionHex :: !T.Text
+  , scriptVersionPlain :: !T.Text
+  }
+  deriving stock (Show, Generic)
+  deriving anyclass (Aeson.FromJSON, Aeson.ToJSON, Swagger.ToSchema)
 
 --------------------------------------------------------------------------------
 -- Headers

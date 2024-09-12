@@ -22,10 +22,11 @@ import EA.Api.Order.Types (
   OrderUpdateRequest (..),
  )
 import EA.Api.Types (
+  OrderScriptResponse (OrderScriptResponse),
   SubmitTxResponse,
   txBodySubmitTxResponse,
  )
-import EA.Script (Scripts, oracleValidator)
+import EA.Script (Scripts, marketplaceValidator, oracleValidator)
 import EA.Script.Marketplace (
   MarketplaceInfo (
     MarketplaceInfo,
@@ -49,7 +50,7 @@ import EA.Wallet (
   eaGetCollateralFromInternalWallet,
   eaGetaddressFromPaymentKeyHash,
  )
-import GeniusYield.TxBuilder (GYTxSkeleton)
+import GeniusYield.TxBuilder (GYTxSkeleton, runGYTxQueryMonadIO, scriptAddress)
 import GeniusYield.Types
 import Internal.Wallet qualified as Wallet
 import Servant (
@@ -71,11 +72,13 @@ import EA.CommonException (CommonException (..))
 
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as T
+import Data.Text.Encoding.Base16 (decodeBase16Lenient)
 
 --------------------------------------------------------------------------------
 
 data OrderApi mode = OrderApi
-  { listOrders :: mode :- OrderList
+  { orderScriptInfo :: mode :- OrderScriptInfo
+  , listOrders :: mode :- OrderList
   , orderCreate :: mode :- OrderCreate
   , orderBuy :: mode :- OrderBuy
   , orderCancel :: mode :- OrderCancel
@@ -86,12 +89,15 @@ data OrderApi mode = OrderApi
 handleOrderApi :: ServerT (NamedRoutes OrderApi) EAApp
 handleOrderApi =
   OrderApi
-    { listOrders = handleListOrders
+    { orderScriptInfo = handleOrderScriptInfo
+    , listOrders = handleListOrders
     , orderCreate = handleOrderRequestSell
     , orderBuy = handleOrderBuy
     , orderCancel = handleOrderCancel
     , orderUpdate = handleOrderUpdate
     }
+
+type OrderScriptInfo = "orders" :> "script_info" :> Get '[JSON] OrderScriptResponse
 
 type OrderList =
   "orders"
@@ -189,6 +195,13 @@ withMarketplaceApiCtx f = do
       , mktCtxCollateral = (collateral, colKey)
       , mktCtxParams = marketplaceParams
       }
+
+handleOrderScriptInfo :: EAApp OrderScriptResponse
+handleOrderScriptInfo =
+  withMarketplaceApiCtx $ \MarketplaceApiCtx {..} -> do
+    scriptAddr <- liftIO $ runGYTxQueryMonadIO mktCtxNetworkId mktCtxProviders $ scriptAddress (marketplaceValidator mktCtxParams mktCtxScripts)
+    let paramHex = tokenNameToHex $ mktPrmVersion mktCtxParams
+    return $ OrderScriptResponse (addressToBech32 scriptAddr) paramHex (decodeBase16Lenient paramHex)
 
 handleTx :: MarketplaceApiCtx -> GYAddress -> Wallet.PaymentKey -> GYTxSkeleton 'PlutusV2 -> EAApp SubmitTxResponse
 handleTx MarketplaceApiCtx {..} addr addrKey tx = do

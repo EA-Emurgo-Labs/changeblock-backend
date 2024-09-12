@@ -202,7 +202,6 @@ handleCarbonApi multipartData = do
 
   txBody <- liftIO $ runSkeletonF nid providers [userAddr] userAddr collateral (return tx)
 
-  putStrLn $ show txBody
   void $ eaSubmitTx $ Wallet.signTx txBody [userKey, colKey]
 
   return $
