@@ -11,7 +11,7 @@ constEscrowAddress GYMainnet = unsafeAddressFromText "addr1qxpk2jharz8704cqncw2y
 constEscrowAddress _ = unsafeAddressFromText "addr_test1qpyfg6h3hw8ffqpf36xd73700mkhzk2k7k4aam5jeg9zdmj6k4p34kjxrlgugcktj6hzp3r8es2nv3lv3quyk5nmhtqqexpysh"
 
 constBackdoorAddress :: GYNetworkId -> GYAddress
-constBackdoorAddress GYMainnet = unsafeAddressFromText "addr1qxlw355sgszrmg0952qr9etvqkec0vl232tm5g24tt7c9gzv6mq62r97eph9f22h3gqsvuq6kg6skmhrt4dwjkdhznzqyjysr2"
+constBackdoorAddress GYMainnet = unsafeAddressFromText "addr1v857xkza0e82ce5nhx9mcwj8eylve9mpwcgl9gse5pc30echsqvjm"
 constBackdoorAddress _ =
   unsafeAddressFromText "addr_test1vrvx594erd0d2sj4hm4ux4av3jv5wqu4uayjat44uh8r08cqta7gu"
 
