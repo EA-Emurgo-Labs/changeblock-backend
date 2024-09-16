@@ -28,6 +28,7 @@ config-files/*
 config.json
 config.preprod.json
 config.mainnet.json
+config.testnet.json
 swagger-api.json
 result
 result-*
