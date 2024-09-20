@@ -1,4 +1,4 @@
-module EA.Tx.Changeblock.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken) where
+module EA.Tx.Nexchange.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken) where
 
 import EA.Script (Scripts (..), carbonNftMintingPolicy, carbonTokenMintingPolicy)
 import EA.Script.Marketplace (MarketplaceDatum (..))

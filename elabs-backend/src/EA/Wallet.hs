@@ -57,7 +57,7 @@ eaGetInternalAddressesIO collateral nid rootK pool = do
   indexPairs <-
     runSqlPool (getInternalWalletIndexPairs' 1 collateral) pool
 
-  -- \^ Need to be 1 because how ChangeBlock smart contract v1 is implemented
+  -- \^ Need to be 1 because how Nexchange smart contract v1 is implemented
   eaLiftEitherIO id $
     mapM (uncurry $ deriveAddress nid rootK) indexPairs
 
@@ -72,7 +72,7 @@ eaGetAddresses' :: UserId -> GYNetworkId -> RootKey -> Pool SqlBackend -> EAApp 
 eaGetAddresses' userId nid rootK pool = do
   indexPairs <-
     liftIO $ runSqlPool (getWalletIndexPairs' userId 1) pool
-  -- \^ Need to be 1 because how ChangeBlock smart contract v1 is implemented
+  -- \^ Need to be 1 because how Nexchange smart contract v1 is implemented
 
   -- Save derived pub key hash
   pairs <-

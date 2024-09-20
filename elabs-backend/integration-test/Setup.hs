@@ -28,8 +28,8 @@ import EA.Script (Scripts (..), marketplaceValidator, nftMintingPolicy, oracleVa
 import EA.Script.Marketplace (MarketplaceParams (..))
 import EA.Script.Oracle (utxoToOracleInfo)
 import EA.Test.Helpers (createRootKey)
-import EA.Tx.Changeblock.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken)
-import EA.Tx.Changeblock.Oracle (createOracle)
+import EA.Tx.Nexchange.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken)
+import EA.Tx.Nexchange.Oracle (createOracle)
 import EA.Wallet (eaGetAddresses, eaGetInternalAddresses)
 import GeniusYield.Test.Privnet.Ctx (
   Ctx (..),

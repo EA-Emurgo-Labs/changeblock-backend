@@ -36,7 +36,7 @@ parseRootCommand =
       [ fullDesc
       , header $
           mconcat
-            [ "changeblock-cli - Command line utility for interacting with the ChangeBlock API and blockchain."
+            [ "Nexchange-cli - Command line utility for interacting with the Nexchange API and blockchain."
             , " Provides specific commands to manage Authentication keys, Marketplace, Oracle and Wallet."
             ]
       , progDesc "Note: To submit blockchain transactions, you need to have CORE_CONFIG_PATH variable set. (default: config.json)"

@@ -39,7 +39,7 @@ import EA.Script.Marketplace (
  )
 import EA.Script.Marketplace qualified as Marketplace
 import EA.Script.Oracle (OracleInfo)
-import EA.Tx.Changeblock.Marketplace (
+import EA.Tx.Nexchange.Marketplace (
   adjustOrders,
   buy,
   cancel,
