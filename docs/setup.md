@@ -1,6 +1,6 @@
 # Setup
 
-Before running Changeblock Server we need to setup few Environment variables and load funds.
+Before running Nexchange Server we need to setup few Environment variables and load funds.
 
 ## 1. Setup Environment Variables
 

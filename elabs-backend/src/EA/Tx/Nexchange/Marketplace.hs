@@ -1,4 +1,4 @@
-module EA.Tx.Changeblock.Marketplace (buy, partialBuy, sell, cancel, merge, adjustOrders, deployScript, withdrawCarbonToken) where
+module EA.Tx.Nexchange.Marketplace (buy, partialBuy, sell, cancel, merge, adjustOrders, deployScript, withdrawCarbonToken) where
 
 import EA ()
 import EA.Script (Scripts, marketplaceValidator)

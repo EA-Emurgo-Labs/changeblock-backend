@@ -56,7 +56,7 @@ createWalletIndexPair ::
   Bool ->
   ReaderT SqlBackend m ()
 createWalletIndexPair userId 1 collateral = do
-  -- n need to be 1 because how ChangeBlock smart contract v1 is implemented
+  -- n need to be 1 because how Nexchange smart contract v1 is implemented
   transactionSave
   time <- liftIO getCurrentTime
   selectKeysList [] [Desc AccountId]

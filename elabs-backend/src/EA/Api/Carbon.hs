@@ -38,7 +38,7 @@ import EA.CommonException (CommonException (EaCustomError, EaInvalidAddres, EaIn
 import EA.Orphans (MultipartFormDataTmp)
 import EA.Script (carbonNftMintingPolicy, marketplaceValidator, oracleValidator)
 import EA.Script.Marketplace (MarketplaceParams (..))
-import EA.Tx.Changeblock.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken)
+import EA.Tx.Nexchange.MintIpfsNftCarbonToken (mintIpfsNftCarbonToken)
 import EA.Wallet (
   eaGetAddresses,
   eaGetCollateralFromInternalWallet,

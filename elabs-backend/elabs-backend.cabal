@@ -152,9 +152,9 @@ library
     EA.Script
     EA.Script.Marketplace
     EA.Script.Oracle
-    EA.Tx.Changeblock.Marketplace
-    EA.Tx.Changeblock.MintIpfsNftCarbonToken
-    EA.Tx.Changeblock.Oracle
+    EA.Tx.Nexchange.Marketplace
+    EA.Tx.Nexchange.MintIpfsNftCarbonToken
+    EA.Tx.Nexchange.Oracle
     EA.Wallet
     Internal.AdaPrice
     Internal.Constants

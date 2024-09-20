@@ -21,7 +21,7 @@ let
     echo "create postgres user"
     createuser postgres -s --host $PGDATA -p 5321     
       
-    echo "initializing Changeblock Dev & Test db"
+    echo "initializing Nexchange Dev & Test db"
     createdb cbl --host $PGDATA -p 5321
     createdb cbl_test --host $PGDATA -p 5321
       

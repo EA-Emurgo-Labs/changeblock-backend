@@ -47,9 +47,9 @@ import Servant.Swagger (toSwagger)
 type Api =
   "v0"
     :> Header "Authorization" AuthorizationHeader
-    :> NamedRoutes ChangeblockApi
+    :> NamedRoutes NexchangeApi
 
-data ChangeblockApi mode = ChangeblockApi
+data NexchangeApi mode = NexchangeApi
   { txApi :: mode :- NamedRoutes TxApi
   , walletApi :: mode :- NamedRoutes WalletApi
   , carbonApi :: mode :- CarbonApi
@@ -75,16 +75,16 @@ appApi :: Proxy Api
 appApi = Proxy
 
 apiServer :: ServerT Api EAApp
-apiServer = changeblockServer'
+apiServer = nexchangeServer'
 
 apiSwaggerUI :: ServerT Raw EAApp
 apiSwaggerUI = serveDirectoryFileServer "swagger-ui"
 
-changeblockServer ::
+nexchangeServer ::
   Maybe AuthorizationHeader ->
-  ServerT (NamedRoutes ChangeblockApi) EAApp
-changeblockServer _ =
-  ChangeblockApi
+  ServerT (NamedRoutes NexchangeApi) EAApp
+nexchangeServer _ =
+  NexchangeApi
     { txApi = handleTxApi
     , walletApi = handleWalletApi
     , carbonApi = handleCarbonApi
@@ -103,14 +103,14 @@ instance IsGYApiError UnAuthorizedError where
       , gaeMsg = "Unauthorized access to the API. Please provide a valid token in Header."
       }
 
-changeblockServer' ::
+nexchangeServer' ::
   Maybe AuthorizationHeader ->
-  ServerT (NamedRoutes ChangeblockApi) EAApp
-changeblockServer' maybeAuthHeader =
+  ServerT (NamedRoutes NexchangeApi) EAApp
+nexchangeServer' maybeAuthHeader =
   hoistServer
-    (Proxy @(NamedRoutes ChangeblockApi))
+    (Proxy @(NamedRoutes NexchangeApi))
     run
-    (changeblockServer maybeAuthHeader)
+    (nexchangeServer maybeAuthHeader)
   where
     run :: EAApp a -> EAApp a
     run action = case maybeAuthHeader of

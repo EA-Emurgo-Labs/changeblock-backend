@@ -1,4 +1,4 @@
-module EA.Tx.Changeblock.Oracle (createOracle, updateOracle, deleteOracle) where
+module EA.Tx.Nexchange.Oracle (createOracle, updateOracle, deleteOracle) where
 
 import EA.Script.Oracle (OracleDatum (..), OracleInfo (..))
 import EA.Script.Oracle qualified as Oracle

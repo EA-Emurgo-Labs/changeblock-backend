@@ -16,8 +16,8 @@ import EA.ErrorMiddleware (apiErrorToServerError, exceptionHandler)
 import EA.Routes (appRoutes, routes)
 import EA.Script (nftMintingPolicy, oracleValidator)
 import EA.Script.Marketplace (MarketplaceParams (..))
-import EA.Tx.Changeblock.Marketplace (deployScript)
-import EA.Tx.Changeblock.Oracle (createOracle)
+import EA.Tx.Nexchange.Marketplace (deployScript)
+import EA.Tx.Nexchange.Oracle (createOracle)
 
 import EA.Wallet (
   eaGetCollateralFromInternalWallet,
