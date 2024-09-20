@@ -62,13 +62,13 @@ apiSwagger =
   toSwagger appApi
     & info
     . title
-    .~ "ChangeBlock API"
+    .~ "Nexchange API"
       & info
       . version
     .~ "1.0"
       & info
       . description
-    ?~ "The ChangeBlock API."
+    ?~ "The Nexchange API."
       & (basePath ?~ "/api")
 
 appApi :: Proxy Api
